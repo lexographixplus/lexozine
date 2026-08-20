@@ -14,6 +14,16 @@ export type ImageAlign = "left" | "center" | "right" | "full";
 export type ImageFit = "cover" | "contain";
 export type TypographyPreset = "editorial-serif" | "modern-sans" | "hybrid" | "minimal";
 
+export type FrameGeometry = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+  locked: boolean;
+};
+
 export type ImagePlacement = {
   width: number;
   align: ImageAlign;
@@ -43,6 +53,7 @@ export type StoryBlock = {
   caption?: string;
   focalPoint?: { x: number; y: number };
   placement?: ImagePlacement;
+  frame?: FrameGeometry;
 };
 
 export type Article = {
@@ -152,6 +163,14 @@ export const defaultImagePlacement: ImagePlacement = {
   caption: "",
   alt: "",
 };
+
+export function defaultFrameFor(type: BlockType, order = 0): FrameGeometry {
+  if (type === "headline") return { x: 8, y: 8, width: 84, height: 18, rotation: 0, zIndex: 20 + order, locked: false };
+  if (type === "deck") return { x: 8, y: 28, width: 58, height: 10, rotation: 0, zIndex: 20 + order, locked: false };
+  if (type === "image") return { x: 8, y: 41, width: 48, height: 38, rotation: 0, zIndex: 10 + order, locked: false };
+  if (type === "pullquote") return { x: 60, y: 43, width: 32, height: 20, rotation: 0, zIndex: 30 + order, locked: false };
+  return { x: order % 2 ? 52 : 8, y: 42 + Math.floor(order / 2) * 23, width: 40, height: 20, rotation: 0, zIndex: 15 + order, locked: false };
+}
 
 export function createId(_prefix?: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
