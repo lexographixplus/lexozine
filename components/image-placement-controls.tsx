@@ -1,16 +1,7 @@
 "use client";
 
 import { AlignCenter, AlignLeft, AlignRight, Crop, Maximize2 } from "lucide-react";
-
-export type ImagePlacement = {
-  width: number;
-  align: "left" | "center" | "right" | "full";
-  fit: "cover" | "contain";
-  focalX: number;
-  focalY: number;
-  caption: string;
-  alt: string;
-};
+import type { ImagePlacement } from "@/lib/editor-model";
 
 type Props = {
   value: ImagePlacement;
