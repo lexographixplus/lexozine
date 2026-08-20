@@ -12,6 +12,7 @@ export type BlockType =
 export type ThemeKey = "editorial" | "modern" | "cultural" | "minimal";
 export type ImageAlign = "left" | "center" | "right" | "full";
 export type ImageFit = "cover" | "contain";
+export type TypographyPreset = "editorial-serif" | "modern-sans" | "hybrid" | "minimal";
 
 export type ImagePlacement = {
   width: number;
@@ -21,6 +22,15 @@ export type ImagePlacement = {
   focalY: number;
   caption: string;
   alt: string;
+};
+
+export type TypographySettings = {
+  preset: TypographyPreset;
+  displayFamily: string;
+  bodyFamily: string;
+  bodySize: number;
+  leading: number;
+  tracking: number;
 };
 
 export type StoryBlock = {
@@ -79,6 +89,7 @@ export type Issue = {
   pages: IssuePage[];
   articles: Article[];
   production?: ProductionSettings;
+  typography?: TypographySettings;
   createdAt: string;
   updatedAt: string;
 };
@@ -99,6 +110,22 @@ export const themeTokens: Record<ThemeKey, { label: string; accent: string; pape
   modern: { label: "Modern", accent: "#2b63ff", paper: "#f4f6f8", ink: "#111827" },
   cultural: { label: "Cultural", accent: "#b3382f", paper: "#f1e5d3", ink: "#201914" },
   minimal: { label: "Minimal", accent: "#202020", paper: "#faf9f6", ink: "#171717" },
+};
+
+export const typographyPresets: Record<TypographyPreset, Omit<TypographySettings, "preset"> & { label: string }> = {
+  "editorial-serif": { label: "Editorial Serif", displayFamily: "var(--font-display)", bodyFamily: "Georgia, serif", bodySize: 10, leading: 1.72, tracking: 0 },
+  "modern-sans": { label: "Modern Sans", displayFamily: "var(--font-sans)", bodyFamily: "var(--font-sans)", bodySize: 10, leading: 1.62, tracking: 0 },
+  hybrid: { label: "Hybrid Journal", displayFamily: "var(--font-display)", bodyFamily: "var(--font-sans)", bodySize: 9.5, leading: 1.7, tracking: 0 },
+  minimal: { label: "Minimal Digest", displayFamily: "var(--font-sans)", bodyFamily: "Georgia, serif", bodySize: 10, leading: 1.78, tracking: 0.2 },
+};
+
+export const defaultTypographySettings: TypographySettings = {
+  preset: "editorial-serif",
+  displayFamily: typographyPresets["editorial-serif"].displayFamily,
+  bodyFamily: typographyPresets["editorial-serif"].bodyFamily,
+  bodySize: typographyPresets["editorial-serif"].bodySize,
+  leading: typographyPresets["editorial-serif"].leading,
+  tracking: typographyPresets["editorial-serif"].tracking,
 };
 
 export const defaultProductionSettings: ProductionSettings = {
