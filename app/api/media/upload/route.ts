@@ -52,8 +52,8 @@ export async function POST(request: Request) {
     insert into media_assets (issue_id, cloudinary_public_id, asset_id, name, secure_url, mime_type, width, height, alt_text, created_by)
     values (${issueId}::uuid, ${result.public_id}, ${result.asset_id ?? null}, ${file.name}, ${result.secure_url}, ${file.type}, ${result.width ?? null}, ${result.height ?? null}, ${alt}, ${user.id})
     returning *
-  `;
-  const row: any = rows[0];
+  ` as any[];
+  const row = rows[0];
   return NextResponse.json({
     asset: {
       id: row.id,
