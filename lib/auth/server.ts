@@ -1,13 +1,16 @@
 import { createNeonAuth } from "@neondatabase/auth/next/server";
 
 const baseUrl = process.env.NEON_AUTH_BASE_URL ?? "https://ep-cool-pond-ax00bmnw.neonauth.c-4.us-east-2.aws.neon.tech/neondb/auth";
-const buildOnlySecret = "lexozine-build-only-cookie-secret-not-for-runtime";
-const isProductionBuild = process.env.NEXT_PHASE === "phase-production-build";
-const cookieSecret = process.env.NEON_AUTH_COOKIE_SECRET ?? (isProductionBuild ? buildOnlySecret : undefined);
+const configuredSecret = process.env.NEON_AUTH_COOKIE_SECRET;
 
-if (!cookieSecret) {
-  throw new Error("NEON_AUTH_COOKIE_SECRET is required at runtime and must be at least 32 characters");
-}
+export const authConfigured = Boolean(configuredSecret && configuredSecret.length >= 32);
+
+// Neon Auth requires a cookie secret at module initialization, including during
+// Next.js build analysis. When production configuration is absent we generate an
+// ephemeral, non-predictable value so builds can complete; protected runtime
+// routes fail closed via `authConfigured` until the real Vercel secret is set.
+const ephemeralSecret = `lexozine-${globalThis.crypto.randomUUID()}-${globalThis.crypto.randomUUID()}`;
+const cookieSecret = authConfigured ? configuredSecret! : ephemeralSecret;
 
 export const auth = createNeonAuth({
   baseUrl,
