@@ -46,9 +46,9 @@ export async function GET(request: Request) {
       }
     });
 
-    const previewUrl = `${origin}/preview?issue=${encodeURIComponent(issue.id)}&print=1`;
-    const response = await page.goto(previewUrl, { waitUntil: "networkidle0", timeout: 45000 });
-    if (!response?.ok()) throw new Error(`Print view returned ${response?.status() ?? "no response"}`);
+    const printUrl = `${origin}/print?issue=${encodeURIComponent(issue.id)}`;
+    const response = await page.goto(printUrl, { waitUntil: "networkidle0", timeout: 45000 });
+    if (!response?.ok()) throw new Error(`Print composition returned ${response?.status() ?? "no response"}`);
     await page.emulateMediaType("print");
 
     const size = issue.production?.pageSize ?? "A4";
