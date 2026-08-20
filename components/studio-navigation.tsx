@@ -12,24 +12,22 @@ import {
 } from "lucide-react";
 
 const items = [
-  { href: "/issues", label: "Issues", icon: BookOpen },
-  { href: "/layouts", label: "Layouts", icon: LayoutDashboard },
-  { href: "/styles", label: "Styles", icon: Type },
-  { href: "/media", label: "Media", icon: ImageIcon },
-  { href: "/assist", label: "Assist", icon: Sparkles },
-  { href: "/history", label: "History", icon: History },
-  { href: "/setup", label: "Setup", icon: Settings2 },
+  { href: "/issues", label: "Issues", icon: BookOpen, scoped: false },
+  { href: "/layouts", label: "Layouts", icon: LayoutDashboard, scoped: true },
+  { href: "/styles", label: "Styles", icon: Type, scoped: true },
+  { href: "/media", label: "Media", icon: ImageIcon, scoped: true },
+  { href: "/assist", label: "Assist", icon: Sparkles, scoped: true },
+  { href: "/history", label: "History", icon: History, scoped: true },
+  { href: "/setup", label: "Setup", icon: Settings2, scoped: true },
 ];
 
-export default function StudioNavigation() {
+export default function StudioNavigation({ issueId }: { issueId?: string }) {
   return (
     <aside className="rail" aria-label="Studio navigation">
-      {items.map(({ href, label, icon: Icon }, index) => (
-        <Link key={href} href={href} className={`rail-item ${index === 0 ? "active" : ""}`}>
-          <Icon size={19} />
-          <span>{label}</span>
-        </Link>
-      ))}
+      {items.map(({ href, label, icon: Icon, scoped }, index) => {
+        const target = scoped && issueId ? `${href}?issue=${issueId}` : href;
+        return <Link key={href} href={target} className={`rail-item ${index === 0 ? "active" : ""}`}><Icon size={19} /><span>{label}</span></Link>;
+      })}
     </aside>
   );
 }
