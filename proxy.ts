@@ -18,6 +18,7 @@ export const config = {
   matcher: [
     "/",
     "/issues/:path*",
+    "/canvas/:path*",
     "/layouts/:path*",
     "/blocks/:path*",
     "/styles/:path*",
