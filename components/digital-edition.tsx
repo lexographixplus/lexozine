@@ -4,7 +4,7 @@ import { ArrowDown, Menu, Share2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { Issue, defaultImagePlacement } from "@/lib/editor-model";
-import { resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
+import { resolveActiveCoverAsset, resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
 
 export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue }) {
   const [issue] = useState<Issue>(() => initialIssue ?? createIssueTemplate("editorial"));
@@ -12,7 +12,9 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
 
   const palette = resolveIssuePalette(issue);
   const cover = resolveCoverDesign(issue);
+  const activeCoverAsset = resolveActiveCoverAsset(issue);
   const coverImageUrl = resolveCoverImageUrl(issue);
+  const importedCover = cover.mode === "imported" && Boolean(coverImageUrl);
   const stories = useMemo(() => issue.articles, [issue.articles]);
 
   async function share() {
@@ -21,16 +23,28 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
     else await navigator.clipboard.writeText(url);
   }
 
+  const coverArtStyle = coverImageUrl ? {
+    backgroundImage: `url(${coverImageUrl})`,
+    backgroundSize: activeCoverAsset?.kind === "wrap" ? "200% 100%" : cover.heroFit,
+    backgroundPosition: activeCoverAsset?.kind === "wrap" ? "right center" : `${cover.heroFocalX}% ${cover.heroFocalY}%`,
+    backgroundRepeat: "no-repeat",
+    backgroundColor: palette.background,
+  } : undefined;
+  const overlayStyle = cover.overlay.type === "none"
+    ? { opacity: 0 }
+    : cover.overlay.type === "solid"
+      ? { background: cover.overlay.color, opacity: cover.overlay.opacity }
+      : { background: `linear-gradient(180deg, transparent 8%, ${cover.overlay.color} 100%)`, opacity: cover.overlay.opacity };
+
   return (
     <main className="edition-shell" style={{ "--edition-accent": palette.primary } as React.CSSProperties}>
       <header className="edition-nav"><button className="edition-menu" onClick={() => setNavOpen((value) => !value)} aria-label="Toggle contents"><Menu size={18} /></button><div className="edition-brand">{cover.masthead}</div><div className="edition-meta">ISSUE {issue.number} · {issue.editionDate.toUpperCase()}</div><button className="edition-share" onClick={share}><Share2 size={16} /><span>Share</span></button></header>
 
       {navOpen ? <aside className="edition-drawer"><span className="eyebrow">In this issue</span>{stories.map((story, index) => <a key={story.id} href={`#story-${index + 1}`} onClick={() => setNavOpen(false)}><span>{String(index + 1).padStart(2,"0")}</span>{story.title}</a>)}</aside> : null}
 
-      <section className="edition-cover">
-        {coverImageUrl ? <div className="edition-cover-art has-photo" style={{ backgroundImage: `linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,${cover.overlay.opacity})),url(${coverImageUrl})`, backgroundPosition: `${cover.heroFocalX}% ${cover.heroFocalY}%` }} /> : <div className="edition-cover-art" />}
-        <div className="edition-cover-copy" style={{ textAlign: cover.textAlign }}><span className="edition-kicker">{issue.title} · Issue {issue.number}</span><h1>{cover.mainHeadline}</h1><div>{cover.deck}</div><a href="#story-1" className="edition-read">Begin reading <ArrowDown size={17} /></a></div>
-        <div className="edition-coverlines">{cover.lines.map((line) => <span key={line}>{line}</span>)}</div>
+      <section className={`edition-cover ${importedCover ? "edition-cover-imported" : "edition-cover-generated"}`}>
+        {coverImageUrl ? <div className="edition-cover-art has-photo" style={coverArtStyle} /> : <div className="edition-cover-art" />}
+        {!importedCover ? <><div className="edition-cover-overlay" style={overlayStyle}/><div className="edition-cover-copy" style={{ textAlign: cover.textAlign }}><span className="edition-kicker">{issue.title} · Issue {issue.number}</span><h1>{cover.mainHeadline}</h1><div>{cover.deck}</div><a href="#story-1" className="edition-read">Begin reading <ArrowDown size={17} /></a></div><div className="edition-coverlines">{cover.lines.map((line) => <span key={line}>{line}</span>)}</div></> : null}
       </section>
 
       <section className="edition-intro"><span className="edition-large-number">{issue.number}</span><div><span className="eyebrow">Editor&apos;s note</span><h2>{issue.title}</h2></div><p>{issue.description}</p></section>
