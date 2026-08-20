@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Heading1, Heading2, Pilcrow, Plus, Quote } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowUp, Heading1, Heading2, ImageIcon, Pilcrow, Plus, Quote, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { BlockType, Issue, StoryBlock } from "@/lib/editor-model";
 import { createId } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
@@ -15,6 +15,12 @@ const blocks: Array<{ type: Extract<BlockType,"headline"|"deck"|"body"|"pullquot
   { type: "body", label: "Body copy", description: "Long-form article paragraph with rich-text formatting.", icon: Pilcrow, defaultText: "Add body copy here." },
   { type: "pullquote", label: "Pull quote", description: "Prominent quotation used to create editorial rhythm.", icon: Quote, defaultText: "Add a memorable quotation." },
 ];
+
+function labelFor(block: StoryBlock) {
+  if (block.type === "image") return block.placement?.caption || block.placement?.alt || "Placed image";
+  const text = block.content.replace(/<[^>]+>/g, "").trim();
+  return text || block.type;
+}
 
 export default function BlockBuilder() {
   const [issue, setIssue] = useState<Issue>(()=>createIssueTemplate("editorial"));
@@ -30,6 +36,9 @@ export default function BlockBuilder() {
     } catch {}
   },[]);
 
+  const article = useMemo(()=>issue.articles.find((item)=>item.id===articleId),[issue.articles,articleId]);
+  const ordered = useMemo(()=>[...(article?.blocks??[])].sort((a,b)=>a.order-b.order),[article]);
+
   function persist(next:Issue){
     const issues=(()=>{try{return JSON.parse(localStorage.getItem(ISSUES_KEY)??"[]") as Issue[]}catch{return[]}})();
     const index=issues.findIndex((item)=>item.id===next.id);
@@ -38,14 +47,33 @@ export default function BlockBuilder() {
     setIssue(next);
   }
 
-  function addBlock(type: Extract<BlockType,"headline"|"deck"|"body"|"pullquote">, text:string){
-    const article=issue.articles.find((item)=>item.id===articleId);
+  function replaceBlocks(nextBlocks: StoryBlock[], message: string){
     if(!article)return;
-    const block:StoryBlock={id:createId("block"),type,content:text,order:article.blocks.length};
-    const next={...issue,articles:issue.articles.map((item)=>item.id===articleId?{...item,blocks:[...item.blocks,block],updatedAt:new Date().toISOString()}:item),updatedAt:new Date().toISOString()};
+    const normalized=nextBlocks.map((block,order)=>({...block,order}));
+    const next={...issue,articles:issue.articles.map((item)=>item.id===article.id?{...item,blocks:normalized,updatedAt:new Date().toISOString()}:item),updatedAt:new Date().toISOString()};
     persist(next);
-    setStatus(`${type} block added to ${article.title}`);
+    setStatus(message);
   }
 
-  return <main className="utility-shell"><header className="utility-topbar"><Link href={`/?issue=${issue.id}`} className="secondary-button"><ArrowLeft size={15}/> Back to studio</Link><div className="brand-title">Lexozine <span>Blocks</span></div><div className="save-state"><span className="save-dot"/> {status}</div></header><section className="utility-hero"><span className="eyebrow">Structured content</span><h1>Content Block Builder</h1><p>Add publication-aware blocks to an article, then style and edit them directly inside the Studio.</p></section><section className="utility-grid two-column"><div className="utility-panel"><h2>Target article</h2><div className="form-field"><label>Article</label><select value={articleId} onChange={(e)=>setArticleId(e.target.value)}>{issue.articles.map((article)=><option key={article.id} value={article.id}>{article.title}</option>)}</select></div><div className="utility-card" style={{marginTop:18}}><Plus size={20}/><h3>Structured, not free-floating</h3><p>Blocks stay inside the Article model, preserving reading order and making web, DOCX and future server-PDF rendering predictable.</p></div></div><div className="utility-panel"><h2>Add block</h2><div className="preset-list">{blocks.map(({type,label,description,icon:Icon,defaultText})=><button className="preset-card" key={type} onClick={()=>addBlock(type,defaultText)}><Icon size={18}/><div><strong>{label}</strong><span>{description}</span><small>Add to selected article</small></div></button>)}</div></div></section></main>;
+  function addBlock(type: Extract<BlockType,"headline"|"deck"|"body"|"pullquote">, text:string){
+    if(!article)return;
+    const block:StoryBlock={id:createId("block"),type,content:text,order:ordered.length};
+    replaceBlocks([...ordered,block],`${type} block added to ${article.title}`);
+  }
+
+  function move(blockId:string,direction:-1|1){
+    const index=ordered.findIndex((block)=>block.id===blockId);
+    const target=index+direction;
+    if(index<0||target<0||target>=ordered.length)return;
+    const next=[...ordered];
+    [next[index],next[target]]=[next[target],next[index]];
+    replaceBlocks(next,`Block moved ${direction<0?"up":"down"}`);
+  }
+
+  function remove(blockId:string){
+    const block=ordered.find((item)=>item.id===blockId);
+    replaceBlocks(ordered.filter((item)=>item.id!==blockId),`${block?.type??"Block"} removed`);
+  }
+
+  return <main className="utility-shell"><header className="utility-topbar"><Link href={`/?issue=${issue.id}`} className="secondary-button"><ArrowLeft size={15}/> Back to studio</Link><div className="brand-title">Lexozine <span>Blocks</span></div><div className="save-state"><span className="save-dot"/> {status}</div></header><section className="utility-hero"><span className="eyebrow">Structured content</span><h1>Content Block Manager</h1><p>Add, reorder and remove publication-aware blocks, then edit their content and visual treatment inside the Studio.</p></section><section className="utility-grid two-column"><div className="utility-panel"><h2>Story structure</h2><div className="form-field"><label>Article</label><select value={articleId} onChange={(e)=>setArticleId(e.target.value)}>{issue.articles.map((item)=><option key={item.id} value={item.id}>{item.title}</option>)}</select></div><div className="block-order-list">{ordered.map((block,index)=><article key={block.id}><div className="block-order-icon">{block.type==="image"?<ImageIcon size={15}/>:block.type==="pullquote"?<Quote size={15}/>:block.type==="headline"?<Heading1 size={15}/>:block.type==="deck"?<Heading2 size={15}/>:<Pilcrow size={15}/>}</div><div className="block-order-copy"><strong>{block.type}</strong><span>{labelFor(block).slice(0,80)}</span></div><div className="block-order-actions"><button disabled={index===0} onClick={()=>move(block.id,-1)} aria-label="Move block up"><ArrowUp size={13}/></button><button disabled={index===ordered.length-1} onClick={()=>move(block.id,1)} aria-label="Move block down"><ArrowDown size={13}/></button><button className="remove" onClick={()=>remove(block.id)} aria-label="Remove block"><Trash2 size={13}/></button></div></article>)}</div></div><div className="utility-panel"><h2>Add block</h2><div className="preset-list">{blocks.map(({type,label,description,icon:Icon,defaultText})=><button className="preset-card" key={type} onClick={()=>addBlock(type,defaultText)}><Icon size={18}/><div><strong>{label}</strong><span>{description}</span><small>Add to selected article</small></div></button>)}</div><div className="utility-card" style={{marginTop:18}}><Plus size={20}/><h3>Structured reading order</h3><p>The order here drives the editorial sequence used by Studio, digital edition, DOCX export and future server-rendered PDF output.</p></div></div></section></main>;
 }
