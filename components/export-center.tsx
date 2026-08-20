@@ -85,8 +85,8 @@ export default function ExportCenter() {
         });
       });
 
-      const document = new Document({ sections: [{ properties: {}, children }] });
-      const blob = await Packer.toBlob(document);
+      const wordDocument = new Document({ sections: [{ properties: {}, children }] });
+      const blob = await Packer.toBlob(wordDocument);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
