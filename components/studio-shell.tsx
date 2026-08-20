@@ -27,18 +27,9 @@ import {
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type BlockType = "headline" | "deck" | "body" | "pullquote" | "caption";
-
-type StoryBlock = {
-  id: string;
-  type: BlockType;
-  content: string;
-};
-
-type PageItem = {
-  id: string;
-  label: string;
-  kind: "cover" | "toc" | "article";
-};
+type PageKind = "cover" | "toc" | "article";
+type StoryBlock = { id: string; type: BlockType; content: string };
+type PageItem = { id: string; label: string; kind: PageKind };
 
 type PersistedStudioState = {
   pages: PageItem[];
@@ -90,7 +81,6 @@ function textToBlocks(text: string): StoryBlock[] {
     else if (index === 1 && content.length < 220) type = "deck";
     else if (/^[“\"]|[”\"]$/.test(content) && content.length < 260) type = "pullquote";
     else if (content.length < 90 && index > 2) type = "pullquote";
-
     return { id: `import-${Date.now()}-${index}`, type, content };
   });
 }
@@ -110,6 +100,9 @@ export default function StudioShell() {
 
   const theme = themes[themeKey];
   const selected = useMemo(() => blocks.find((block) => block.id === selectedBlock), [blocks, selectedBlock]);
+  const activeItem = useMemo(() => pages.find((page) => page.id === activePage) ?? pages[0], [pages, activePage]);
+  const headline = blocks.find((block) => block.type === "headline")?.content || "Untitled Story";
+  const deck = blocks.find((block) => block.type === "deck")?.content || "Add a short editorial deck for this story.";
 
   useEffect(() => {
     try {
@@ -154,8 +147,8 @@ export default function StudioShell() {
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-
     setImportState(`Importing ${file.name}…`);
+
     try {
       let text = "";
       if (file.name.toLowerCase().endsWith(".docx")) {
@@ -185,6 +178,89 @@ export default function StudioShell() {
     }
   }
 
+  function renderCover() {
+    return (
+      <div className="single-page-wrap" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}>
+        <article className="cover-canvas" style={{ color: theme.paper }}>
+          <div className="cover-art" style={{ background: `radial-gradient(circle at 68% 25%, ${theme.accent} 0 12%, transparent 13%), linear-gradient(135deg, #17191c 0 44%, ${theme.accent} 44% 58%, #dfd7cc 58% 100%)` }} />
+          <div className="cover-topline"><span>ISSUE 01</span><span>2026</span></div>
+          <div className="cover-masthead">LEXOZINE</div>
+          <div className="cover-strategy">CREATE · PUBLISH · DIGITIZE · GROW</div>
+          <div className="cover-feature">
+            <span>NEW VOICES</span>
+            <h1>{headline}</h1>
+            <p>{deck}</p>
+          </div>
+          <div className="cover-lines">
+            <span>Designing the next African visual language</span>
+            <span>Culture, publishing and creative technology</span>
+          </div>
+        </article>
+      </div>
+    );
+  }
+
+  function renderToc() {
+    const stories = pages.filter((page) => page.kind === "article");
+    return (
+      <div className="single-page-wrap" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}>
+        <article className="toc-canvas" style={{ background: theme.paper, color: theme.ink }}>
+          <div className="toc-number" style={{ color: theme.accent }}>01</div>
+          <div className="toc-heading"><span>Issue 01</span><h1>Contents</h1><p>Stories, ideas and visual culture from the Lexozine editorial desk.</p></div>
+          <div className="toc-list">
+            {stories.map((story, index) => (
+              <button key={story.id} onClick={() => setActivePage(story.id)} className="toc-entry">
+                <span>{String(index * 4 + 4).padStart(2, "0")}</span>
+                <div><strong>{story.label}</strong><small>{index === 0 ? "Design / City / Culture" : "Ideas / Publishing / People"}</small></div>
+              </button>
+            ))}
+          </div>
+          <div className="toc-footer">LEXOZINE · NEW VOICES · 2026</div>
+        </article>
+      </div>
+    );
+  }
+
+  function renderArticle() {
+    return (
+      <div className="magazine-spread" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}>
+        <article className="mag-page left-page" style={{ background: theme.paper, color: theme.ink }}>
+          <div className="page-running-head">LEXOZINE · NEW VOICES</div>
+          <div className="story-kicker" style={{ color: theme.accent }}>DESIGN / CITY / CULTURE</div>
+          {blocks.filter((b) => ["headline", "deck"].includes(b.type)).map((block) => (
+            <button key={block.id} onClick={() => setSelectedBlock(block.id)} className={`editable-block ${selectedBlock === block.id ? "selected" : ""}`}>
+              {block.type === "headline" ? <h1>{block.content}</h1> : <p className="story-deck">{block.content}</p>}
+            </button>
+          ))}
+          <div className="byline-row"><span>Words by Lexozine Editorial</span><span>8 min read</span></div>
+          <div className="hero-image-frame">
+            <div className="hero-image-art" style={{ background: `linear-gradient(145deg, ${theme.accent} 0%, #2a2523 48%, #ded4c7 48%, #ded4c7 100%)` }} />
+            <span>Feature image · focal point editable</span>
+          </div>
+          <div className="folio">04</div>
+        </article>
+
+        <article className="mag-page right-page" style={{ background: theme.paper, color: theme.ink }}>
+          <div className="page-running-head">{headline.toUpperCase()}</div>
+          <div className={`article-flow columns-${columns}`}>
+            {blocks.filter((b) => b.type === "body").map((block, index) => (
+              <button key={block.id} onClick={() => setSelectedBlock(block.id)} className={`editable-block body-block ${selectedBlock === block.id ? "selected" : ""}`}>
+                <p className={index === 0 ? "drop-cap" : ""}>{block.content}</p>
+              </button>
+            ))}
+            {blocks.filter((b) => b.type === "pullquote").map((block) => (
+              <button key={block.id} onClick={() => setSelectedBlock(block.id)} className={`editable-block pullquote ${selectedBlock === block.id ? "selected" : ""}`} style={{ borderColor: theme.accent }}>
+                “{block.content}”
+              </button>
+            ))}
+          </div>
+          <div className="article-note" style={{ borderTopColor: theme.accent }}><strong>Editorial note</strong><span>Layouts remain fully editable after manuscript import.</span></div>
+          <div className="folio">05</div>
+        </article>
+      </div>
+    );
+  }
+
   return (
     <main className="studio-shell">
       <input ref={fileInputRef} type="file" accept=".docx,.txt,.html" hidden onChange={handleImport} />
@@ -192,17 +268,9 @@ export default function StudioShell() {
         <div className="brand-lockup">
           <button className="icon-button mobile-only" aria-label="Open navigation"><Menu size={18} /></button>
           <div className="brand-mark">LZ</div>
-          <div>
-            <div className="brand-title">Lexozine <span>Studio</span></div>
-            <div className="brand-subtitle">Editorial design workspace</div>
-          </div>
+          <div><div className="brand-title">Lexozine <span>Studio</span></div><div className="brand-subtitle">Editorial design workspace</div></div>
         </div>
-
-        <div className="document-title">
-          <span>Issue 01 · New Voices</span>
-          <ChevronDown size={14} />
-        </div>
-
+        <div className="document-title"><span>Issue 01 · New Voices</span><ChevronDown size={14} /></div>
         <div className="top-actions">
           <button className="icon-button" aria-label="Undo"><Undo2 size={17} /></button>
           <button className="icon-button" aria-label="Redo"><Redo2 size={17} /></button>
@@ -224,137 +292,39 @@ export default function StudioShell() {
         </aside>
 
         <aside className="navigator-panel">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">Issue structure</span>
-              <h2>New Voices</h2>
-            </div>
-            <button className="icon-button"><MoreHorizontal size={18} /></button>
-          </div>
-
-          <div className="issue-meta">
-            <div><span>Issue</span><strong>01</strong></div>
-            <div><span>Status</span><strong>Draft</strong></div>
-          </div>
-
+          <div className="panel-heading"><div><span className="eyebrow">Issue structure</span><h2>New Voices</h2></div><button className="icon-button"><MoreHorizontal size={18} /></button></div>
+          <div className="issue-meta"><div><span>Issue</span><strong>01</strong></div><div><span>Status</span><strong>Draft</strong></div></div>
           <div className="section-label">Pages & stories</div>
           <div className="page-list">
             {pages.map((page, index) => (
               <button key={page.id} onClick={() => setActivePage(page.id)} className={`page-row ${activePage === page.id ? "active" : ""}`}>
-                <span className={`page-thumb ${page.kind}`}>
-                  {page.kind === "cover" ? "LZ" : page.kind === "toc" ? "01" : String(Math.max(1, index - 1)).padStart(2, "0")}
-                </span>
-                <span className="page-copy">
-                  <strong>{page.label}</strong>
-                  <small>{page.kind === "article" ? "Feature story" : page.kind === "cover" ? "Front cover" : "Auto generated"}</small>
-                </span>
+                <span className={`page-thumb ${page.kind}`}>{page.kind === "cover" ? "LZ" : page.kind === "toc" ? "01" : String(Math.max(1, index - 1)).padStart(2, "0")}</span>
+                <span className="page-copy"><strong>{page.label}</strong><small>{page.kind === "article" ? "Feature story" : page.kind === "cover" ? "Front cover" : "Auto generated"}</small></span>
                 <MoreHorizontal size={15} />
               </button>
             ))}
           </div>
-
           <button onClick={addPage} className="add-page-button"><Plus size={16} /> Add article</button>
-
-          <button className="import-card" onClick={() => fileInputRef.current?.click()}>
-            <Upload size={18} />
-            <div><strong>Import manuscript</strong><span>{importState}</span></div>
-          </button>
+          <button className="import-card" onClick={() => fileInputRef.current?.click()}><Upload size={18} /><div><strong>Import manuscript</strong><span>{importState}</span></div></button>
         </aside>
 
         <section className="canvas-stage">
           <div className="canvas-toolbar">
-            <div className="toolbar-group">
-              <button className="tool-button active"><FileText size={15} /> Page</button>
-              <button className="tool-button"><Grid3X3 size={15} /> Grid</button>
-              <button className="tool-button"><Columns3 size={15} /> Columns</button>
-            </div>
-            <div className="toolbar-group zoom-controls">
-              <button className="icon-button" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
-              <span>{zoom}%</span>
-              <button className="icon-button" aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(120, z + 10))}><ZoomIn size={16} /></button>
-            </div>
+            <div className="toolbar-group"><button className="tool-button active"><FileText size={15} /> {activeItem.kind === "article" ? "Spread" : "Page"}</button><button className="tool-button"><Grid3X3 size={15} /> Grid</button><button className="tool-button"><Columns3 size={15} /> Columns</button></div>
+            <div className="toolbar-group zoom-controls"><button className="icon-button" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(50, z - 10))}><ZoomOut size={16} /></button><span>{zoom}%</span><button className="icon-button" aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(120, z + 10))}><ZoomIn size={16} /></button></div>
           </div>
-
           <div className="canvas-scroll">
-            <div className="spread-label"><span>Pages 4–5</span><span>Feature spread</span></div>
-            <div className="magazine-spread" style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}>
-              <article className="mag-page left-page" style={{ background: theme.paper, color: theme.ink }}>
-                <div className="page-running-head">LEXOZINE · NEW VOICES</div>
-                <div className="story-kicker" style={{ color: theme.accent }}>DESIGN / CITY / CULTURE</div>
-                {blocks.filter((b) => ["headline", "deck"].includes(b.type)).map((block) => (
-                  <button key={block.id} onClick={() => setSelectedBlock(block.id)} className={`editable-block ${selectedBlock === block.id ? "selected" : ""}`}>
-                    {block.type === "headline" ? <h1>{block.content}</h1> : <p className="story-deck">{block.content}</p>}
-                  </button>
-                ))}
-                <div className="byline-row"><span>Words by Lexozine Editorial</span><span>8 min read</span></div>
-                <div className="hero-image-frame">
-                  <div className="hero-image-art" style={{ background: `linear-gradient(145deg, ${theme.accent} 0%, #2a2523 48%, #ded4c7 48%, #ded4c7 100%)` }} />
-                  <span>Feature image · focal point editable</span>
-                </div>
-                <div className="folio">04</div>
-              </article>
-
-              <article className="mag-page right-page" style={{ background: theme.paper, color: theme.ink }}>
-                <div className="page-running-head">{blocks.find((b) => b.type === "headline")?.content.toUpperCase() || "UNTITLED STORY"}</div>
-                <div className={`article-flow columns-${columns}`}>
-                  {blocks.filter((b) => b.type === "body").map((block, index) => (
-                    <button key={block.id} onClick={() => setSelectedBlock(block.id)} className={`editable-block body-block ${selectedBlock === block.id ? "selected" : ""}`}>
-                      <p className={index === 0 ? "drop-cap" : ""}>{block.content}</p>
-                    </button>
-                  ))}
-                  {blocks.filter((b) => b.type === "pullquote").map((block) => (
-                    <button key={block.id} onClick={() => setSelectedBlock(block.id)} className={`editable-block pullquote ${selectedBlock === block.id ? "selected" : ""}`} style={{ borderColor: theme.accent }}>
-                      “{block.content}”
-                    </button>
-                  ))}
-                </div>
-                <div className="article-note" style={{ borderTopColor: theme.accent }}>
-                  <strong>Editorial note</strong>
-                  <span>Layouts remain fully editable after manuscript import.</span>
-                </div>
-                <div className="folio">05</div>
-              </article>
-            </div>
+            <div className="spread-label"><span>{activeItem.label}</span><span>{activeItem.kind === "article" ? "Editorial spread" : activeItem.kind === "cover" ? "Front cover" : "Issue navigation"}</span></div>
+            {activeItem.kind === "cover" ? renderCover() : activeItem.kind === "toc" ? renderToc() : renderArticle()}
           </div>
         </section>
 
         <aside className="inspector-panel">
-          <div className="panel-heading compact">
-            <div><span className="eyebrow">Inspector</span><h2>Design</h2></div>
-          </div>
-
-          <div className="inspector-section">
-            <label>Magazine style</label>
-            <div className="theme-grid">
-              {(Object.keys(themes) as ThemeKey[]).map((key) => (
-                <button key={key} onClick={() => setThemeKey(key)} className={`theme-card ${themeKey === key ? "active" : ""}`}>
-                  <span className="theme-swatch" style={{ background: themes[key].paper, color: themes[key].ink, borderColor: themes[key].accent }}>Aa</span>
-                  <strong>{themes[key].label}</strong>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="inspector-section">
-            <label>Text columns</label>
-            <div className="segmented-control">
-              {[1, 2, 3].map((value) => <button key={value} onClick={() => setColumns(value)} className={columns === value ? "active" : ""}>{value}</button>)}
-            </div>
-          </div>
-
-          <div className="inspector-section">
-            <label>Selected block</label>
-            <div className="selected-meta"><AlignLeft size={16} /><span>{selected?.type ?? "None"}</span></div>
-            <textarea value={selected?.content ?? ""} onChange={(event) => updateBlock(event.target.value)} rows={8} />
-          </div>
-
-          <div className="inspector-section">
-            <label>Production</label>
-            <div className="production-row"><span>Page size</span><strong>A4</strong></div>
-            <div className="production-row"><span>Bleed</span><strong>3 mm</strong></div>
-            <div className="production-row"><span>Safe margin</span><strong>12 mm</strong></div>
-          </div>
-
+          <div className="panel-heading compact"><div><span className="eyebrow">Inspector</span><h2>Design</h2></div></div>
+          <div className="inspector-section"><label>Magazine style</label><div className="theme-grid">{(Object.keys(themes) as ThemeKey[]).map((key) => <button key={key} onClick={() => setThemeKey(key)} className={`theme-card ${themeKey === key ? "active" : ""}`}><span className="theme-swatch" style={{ background: themes[key].paper, color: themes[key].ink, borderColor: themes[key].accent }}>Aa</span><strong>{themes[key].label}</strong></button>)}</div></div>
+          {activeItem.kind === "article" && <div className="inspector-section"><label>Text columns</label><div className="segmented-control">{[1, 2, 3].map((value) => <button key={value} onClick={() => setColumns(value)} className={columns === value ? "active" : ""}>{value}</button>)}</div></div>}
+          {activeItem.kind === "article" && <div className="inspector-section"><label>Selected block</label><div className="selected-meta"><AlignLeft size={16} /><span>{selected?.type ?? "None"}</span></div><textarea value={selected?.content ?? ""} onChange={(event) => updateBlock(event.target.value)} rows={8} /></div>}
+          <div className="inspector-section"><label>Production</label><div className="production-row"><span>Page size</span><strong>A4</strong></div><div className="production-row"><span>Bleed</span><strong>3 mm</strong></div><div className="production-row"><span>Safe margin</span><strong>12 mm</strong></div></div>
           <button className="save-button" onClick={() => setSaveState("Saved locally")}><Save size={16} /> Save version</button>
         </aside>
       </section>
