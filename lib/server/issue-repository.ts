@@ -36,6 +36,8 @@ export async function listIssues(): Promise<Issue[]> {
 
   const blockMap = new Map<string, StoryBlock[]>();
   for (const row of blocks as any[]) {
+    const rawPlacement = row.placement && typeof row.placement === "object" ? row.placement : {};
+    const { __frame, ...imagePlacement } = rawPlacement as Record<string, unknown>;
     const item: StoryBlock = {
       id: row.id,
       type: row.type,
@@ -44,7 +46,8 @@ export async function listIssues(): Promise<Issue[]> {
       imageUrl: row.image_url ?? undefined,
       imagePublicId: row.image_public_id ?? undefined,
       caption: row.caption ?? undefined,
-      placement: row.placement && Object.keys(row.placement).length ? row.placement : undefined,
+      placement: Object.keys(imagePlacement).length ? imagePlacement as StoryBlock["placement"] : undefined,
+      frame: __frame && typeof __frame === "object" ? __frame as StoryBlock["frame"] : undefined,
     };
     const current = blockMap.get(row.article_id) ?? [];
     current.push(item);
@@ -125,9 +128,10 @@ export async function saveIssue(input: Issue, ownerUserId?: string): Promise<Iss
       on conflict (id) do update set title=excluded.title, slug=excluded.slug, category=excluded.category, byline=excluded.byline, read_time=excluded.read_time, layout=excluded.layout, columns=excluded.columns, theme=excluded.theme, position=excluded.position, updated_at=excluded.updated_at
     `);
     for (const block of article.blocks) {
+      const placementPayload = { ...(block.placement ?? {}), ...(block.frame ? { __frame: block.frame } : {}) };
       queries.push(sql`
         insert into blocks (id, article_id, type, content, position, image_url, image_public_id, caption, alt_text, placement, created_at, updated_at)
-        values (${block.id}::uuid, ${article.id}::uuid, ${block.type}::block_type, ${block.content}, ${block.order}, ${block.imageUrl ?? null}, ${block.imagePublicId ?? null}, ${block.caption ?? block.placement?.caption ?? null}, ${block.placement?.alt ?? ""}, ${JSON.stringify(block.placement ?? {})}::jsonb, now(), now())
+        values (${block.id}::uuid, ${article.id}::uuid, ${block.type}::block_type, ${block.content}, ${block.order}, ${block.imageUrl ?? null}, ${block.imagePublicId ?? null}, ${block.caption ?? block.placement?.caption ?? null}, ${block.placement?.alt ?? ""}, ${JSON.stringify(placementPayload)}::jsonb, now(), now())
         on conflict (id) do update set type=excluded.type, content=excluded.content, position=excluded.position, image_url=excluded.image_url, image_public_id=excluded.image_public_id, caption=excluded.caption, alt_text=excluded.alt_text, placement=excluded.placement, updated_at=now()
       `);
     }
