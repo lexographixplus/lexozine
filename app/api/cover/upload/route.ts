@@ -31,8 +31,8 @@ function uploadBuffer(buffer: Buffer, folder: string, originalName: string) {
 
 function pdfPreviewUrl(sourceUrl: string) {
   return sourceUrl
-    .replace("/upload/", "/upload/pg_1,f_jpg,q_auto/" )
-    .replace(/\.pdf(?:$|\?)/i, ".jpg$1");
+    .replace("/upload/", "/upload/pg_1,f_jpg,q_auto/")
+    .replace(/\.pdf$/i, ".jpg");
 }
 
 export async function POST(request: Request) {
