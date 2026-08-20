@@ -61,6 +61,7 @@ export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = 
       deck: "A modern editorial issue created in Lexozine Studio.",
       lines: coverLines,
       textAlign: "left",
+      heroFit: "cover",
       heroFocalX: 50,
       heroFocalY: 50,
       overlay: { type: "gradient", color: "#000000", opacity: 0.62 },
