@@ -61,9 +61,13 @@ export type CoverAsset = {
   id: string;
   name: string;
   url: string;
+  sourceUrl?: string;
   publicId?: string;
   mimeType: string;
   kind: CoverAssetKind;
+  width?: number;
+  height?: number;
+  pages?: number;
   createdAt: string;
 };
 
@@ -83,6 +87,7 @@ export type CoverDesign = {
   textAlign: CoverTextAlign;
   heroImageUrl?: string;
   heroImagePublicId?: string;
+  heroFit: ImageFit;
   heroFocalX: number;
   heroFocalY: number;
   overlay: CoverOverlay;
