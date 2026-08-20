@@ -29,6 +29,7 @@ export const config = {
     "/setup/:path*",
     "/export/:path*",
     "/preview/:path*",
+    "/print/:path*",
     "/api/issues/:path*",
     "/api/media/:path*",
     "/api/review/:path*",
