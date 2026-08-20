@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth, authConfigured } from "@/lib/auth/server";
 
 const handlers = auth.handler();
+type RouteContext = { params: Promise<{ path: string[] }> };
 
 function notConfigured() {
   return NextResponse.json(
@@ -10,12 +11,12 @@ function notConfigured() {
   );
 }
 
-export async function GET(request: Request) {
+export async function GET(request: Request, context: RouteContext) {
   if (!authConfigured) return notConfigured();
-  return handlers.GET(request);
+  return handlers.GET(request, context);
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request, context: RouteContext) {
   if (!authConfigured) return notConfigured();
-  return handlers.POST(request);
+  return handlers.POST(request, context);
 }
