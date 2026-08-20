@@ -16,6 +16,7 @@ import {
 
 const items = [
   { href: "/issues", label: "Issues", icon: BookOpen, scoped: false },
+  { href: "/cover", label: "Cover", icon: ImageIcon, scoped: true },
   { href: "/canvas", label: "Canvas", icon: Frame, scoped: true },
   { href: "/layouts", label: "Layouts", icon: LayoutDashboard, scoped: true },
   { href: "/blocks", label: "Blocks", icon: Boxes, scoped: true },
