@@ -24,7 +24,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type BlockType = "headline" | "deck" | "body" | "pullquote" | "caption";
 
@@ -39,6 +39,17 @@ type PageItem = {
   label: string;
   kind: "cover" | "toc" | "article";
 };
+
+type PersistedStudioState = {
+  pages: PageItem[];
+  blocks: StoryBlock[];
+  activePage: string;
+  selectedBlock: string;
+  themeKey: ThemeKey;
+  columns: number;
+};
+
+const STORAGE_KEY = "lexozine-studio-v1";
 
 const initialPages: PageItem[] = [
   { id: "cover", label: "Cover", kind: "cover" },
@@ -64,7 +75,28 @@ const themes = {
 
 type ThemeKey = keyof typeof themes;
 
+function textToBlocks(text: string): StoryBlock[] {
+  const paragraphs = text
+    .replace(/\r/g, "")
+    .split(/\n{2,}|\n(?=[A-Z][^\n]{0,100}$)/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!paragraphs.length) return initialBlocks;
+
+  return paragraphs.map((content, index) => {
+    let type: BlockType = "body";
+    if (index === 0) type = "headline";
+    else if (index === 1 && content.length < 220) type = "deck";
+    else if (/^[“\"]|[”\"]$/.test(content) && content.length < 260) type = "pullquote";
+    else if (content.length < 90 && index > 2) type = "pullquote";
+
+    return { id: `import-${Date.now()}-${index}`, type, content };
+  });
+}
+
 export default function StudioShell() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [pages, setPages] = useState(initialPages);
   const [activePage, setActivePage] = useState("feature");
   const [blocks, setBlocks] = useState(initialBlocks);
@@ -72,22 +104,90 @@ export default function StudioShell() {
   const [themeKey, setThemeKey] = useState<ThemeKey>("editorial");
   const [zoom, setZoom] = useState(82);
   const [columns, setColumns] = useState(2);
+  const [hydrated, setHydrated] = useState(false);
+  const [saveState, setSaveState] = useState("Saved locally");
+  const [importState, setImportState] = useState("DOCX, TXT or HTML");
 
   const theme = themes[themeKey];
   const selected = useMemo(() => blocks.find((block) => block.id === selectedBlock), [blocks, selectedBlock]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as PersistedStudioState;
+        setPages(parsed.pages);
+        setBlocks(parsed.blocks);
+        setActivePage(parsed.activePage);
+        setSelectedBlock(parsed.selectedBlock);
+        setThemeKey(parsed.themeKey);
+        setColumns(parsed.columns);
+      }
+    } catch {
+      setSaveState("Local recovery unavailable");
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    setSaveState("Saving…");
+    const timeout = window.setTimeout(() => {
+      const snapshot: PersistedStudioState = { pages, blocks, activePage, selectedBlock, themeKey, columns };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      setSaveState("Saved locally");
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [pages, blocks, activePage, selectedBlock, themeKey, columns, hydrated]);
 
   function updateBlock(content: string) {
     setBlocks((current) => current.map((block) => block.id === selectedBlock ? { ...block, content } : block));
   }
 
   function addPage() {
-    const id = `story-${pages.length + 1}`;
+    const id = `story-${Date.now()}`;
     setPages((current) => [...current, { id, label: `Untitled story ${current.length - 1}`, kind: "article" }]);
     setActivePage(id);
   }
 
+  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportState(`Importing ${file.name}…`);
+    try {
+      let text = "";
+      if (file.name.toLowerCase().endsWith(".docx")) {
+        const mammoth = await import("mammoth");
+        const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        text = result.value;
+      } else {
+        text = await file.text();
+        if (file.name.toLowerCase().endsWith(".html")) {
+          const doc = new DOMParser().parseFromString(text, "text/html");
+          text = doc.body.innerText;
+        }
+      }
+
+      const imported = textToBlocks(text);
+      setBlocks(imported);
+      setSelectedBlock(imported[0]?.id ?? "");
+      const title = imported.find((block) => block.type === "headline")?.content || file.name.replace(/\.[^.]+$/, "");
+      const id = `article-${Date.now()}`;
+      setPages((current) => [...current, { id, label: title.slice(0, 45), kind: "article" }]);
+      setActivePage(id);
+      setImportState(`${imported.length} blocks imported`);
+    } catch {
+      setImportState("Import failed — file was not changed");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   return (
     <main className="studio-shell">
+      <input ref={fileInputRef} type="file" accept=".docx,.txt,.html" hidden onChange={handleImport} />
       <header className="topbar">
         <div className="brand-lockup">
           <button className="icon-button mobile-only" aria-label="Open navigation"><Menu size={18} /></button>
@@ -106,7 +206,7 @@ export default function StudioShell() {
         <div className="top-actions">
           <button className="icon-button" aria-label="Undo"><Undo2 size={17} /></button>
           <button className="icon-button" aria-label="Redo"><Redo2 size={17} /></button>
-          <div className="save-state"><span className="save-dot" /> Saved</div>
+          <div className="save-state"><span className="save-dot" /> {saveState}</div>
           <button className="secondary-button"><MonitorUp size={16} /> Preview</button>
           <button className="primary-button"><Download size={16} /> Export</button>
         </div>
@@ -142,7 +242,7 @@ export default function StudioShell() {
             {pages.map((page, index) => (
               <button key={page.id} onClick={() => setActivePage(page.id)} className={`page-row ${activePage === page.id ? "active" : ""}`}>
                 <span className={`page-thumb ${page.kind}`}>
-                  {page.kind === "cover" ? "LZ" : page.kind === "toc" ? "01" : String(index - 1).padStart(2, "0")}
+                  {page.kind === "cover" ? "LZ" : page.kind === "toc" ? "01" : String(Math.max(1, index - 1)).padStart(2, "0")}
                 </span>
                 <span className="page-copy">
                   <strong>{page.label}</strong>
@@ -155,10 +255,10 @@ export default function StudioShell() {
 
           <button onClick={addPage} className="add-page-button"><Plus size={16} /> Add article</button>
 
-          <div className="import-card">
+          <button className="import-card" onClick={() => fileInputRef.current?.click()}>
             <Upload size={18} />
-            <div><strong>Import manuscript</strong><span>DOCX, TXT or HTML</span></div>
-          </div>
+            <div><strong>Import manuscript</strong><span>{importState}</span></div>
+          </button>
         </aside>
 
         <section className="canvas-stage">
@@ -169,9 +269,9 @@ export default function StudioShell() {
               <button className="tool-button"><Columns3 size={15} /> Columns</button>
             </div>
             <div className="toolbar-group zoom-controls">
-              <button className="icon-button" onClick={() => setZoom((z) => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
+              <button className="icon-button" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
               <span>{zoom}%</span>
-              <button className="icon-button" onClick={() => setZoom((z) => Math.min(120, z + 10))}><ZoomIn size={16} /></button>
+              <button className="icon-button" aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(120, z + 10))}><ZoomIn size={16} /></button>
             </div>
           </div>
 
@@ -195,7 +295,7 @@ export default function StudioShell() {
               </article>
 
               <article className="mag-page right-page" style={{ background: theme.paper, color: theme.ink }}>
-                <div className="page-running-head">CITY AFTER RAIN</div>
+                <div className="page-running-head">{blocks.find((b) => b.type === "headline")?.content.toUpperCase() || "UNTITLED STORY"}</div>
                 <div className={`article-flow columns-${columns}`}>
                   {blocks.filter((b) => b.type === "body").map((block, index) => (
                     <button key={block.id} onClick={() => setSelectedBlock(block.id)} className={`editable-block body-block ${selectedBlock === block.id ? "selected" : ""}`}>
@@ -255,7 +355,7 @@ export default function StudioShell() {
             <div className="production-row"><span>Safe margin</span><strong>12 mm</strong></div>
           </div>
 
-          <button className="save-button"><Save size={16} /> Save version</button>
+          <button className="save-button" onClick={() => setSaveState("Saved locally")}><Save size={16} /> Save version</button>
         </aside>
       </section>
     </main>
