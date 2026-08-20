@@ -1,4 +1,5 @@
-import { Article, Issue, StoryBlock, createId } from "./editor-model";
+import { Article, Issue, StoryBlock, createId, defaultProductionSettings, defaultTypographySettings } from "./editor-model";
+import { defaultPaletteForTheme } from "./magazine-design";
 
 function block(type: StoryBlock["type"], content: string, order: number): StoryBlock {
   return { id: createId("block"), type, content, order };
@@ -36,20 +37,36 @@ export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = 
     article(kind === "minimal" ? "A Quiet Practice" : "New African Forms", "essay", theme, 1),
     article("The Working Studio", "interview", theme, 2),
   ];
+  const title = kind === "culture" ? "Living Archives" : kind === "minimal" ? "Quiet Forms" : "New Voices";
+  const coverLines = [
+    "Designing the next African visual language",
+    "Culture, publishing and creative technology",
+    "Independent voices worth reading",
+  ];
 
   return {
     id: createId("issue"),
-    title: kind === "culture" ? "Living Archives" : kind === "minimal" ? "Quiet Forms" : "New Voices",
+    title,
     number: "01",
     editionDate: new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date()),
     status: "draft",
     description: "A modern editorial issue created in Lexozine Studio.",
     theme,
-    coverLines: [
-      "Designing the next African visual language",
-      "Culture, publishing and creative technology",
-      "Independent voices worth reading",
-    ],
+    coverLines,
+    cover: {
+      mode: "generated",
+      templateId: "cover-editorial",
+      masthead: "LEXOZINE",
+      mainHeadline: articles[0]?.title ?? title,
+      deck: "A modern editorial issue created in Lexozine Studio.",
+      lines: coverLines,
+      textAlign: "left",
+      heroFocalX: 50,
+      heroFocalY: 50,
+      overlay: { type: "gradient", color: "#000000", opacity: 0.62 },
+      assets: [],
+    },
+    palette: defaultPaletteForTheme(theme),
     pages: [
       { id: createId("page"), label: "Cover", kind: "cover", order: 0 },
       { id: createId("page"), label: "Contents", kind: "toc", order: 1 },
@@ -62,6 +79,8 @@ export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = 
       })),
     ],
     articles,
+    production: { ...defaultProductionSettings },
+    typography: { ...defaultTypographySettings },
     createdAt: now,
     updatedAt: now,
   };
