@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Issue, StoryBlock } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
-
-const ISSUES_KEY = "lexozine-issues-v1";
+import { issueStore } from "@/lib/issue-store";
 
 function plainText(html: string) {
   const doc = new DOMParser().parseFromString(html, "text/html");
@@ -16,14 +15,21 @@ function plainText(html: string) {
 export default function ExportCenter() {
   const [issue, setIssue] = useState<Issue>(() => createIssueTemplate("editorial"));
   const [docxState, setDocxState] = useState("Export editable DOCX");
+  const [syncState, setSyncState] = useState("Loading production issue…");
 
   useEffect(() => {
-    try {
-      const issues = JSON.parse(localStorage.getItem(ISSUES_KEY) ?? "[]") as Issue[];
+    let alive = true;
+    async function load() {
+      const issues = await issueStore?.list() ?? [];
       const requestedId = new URLSearchParams(window.location.search).get("issue");
       const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
-      if (found) setIssue(found);
-    } catch {}
+      if (found && alive) {
+        setIssue(found);
+        setSyncState("Production data synced");
+      }
+    }
+    void load();
+    return () => { alive = false; };
   }, []);
 
   const checks = useMemo(() => {
@@ -42,7 +48,7 @@ export default function ExportCenter() {
   const passed = checks.filter((check) => check.pass).length;
 
   function downloadPackage() {
-    const payload = { format: "lexozine-package-v2", exportedAt: new Date().toISOString(), issue };
+    const payload = { format: "lexozine-package-v3", exportedAt: new Date().toISOString(), issue };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -80,8 +86,7 @@ export default function ExportCenter() {
             const alt = block.placement?.alt?.trim();
             children.push(new Paragraph({ children: [new TextRun({ text: `[Image${alt ? `: ${alt}` : ""}]`, italics: true })] }));
             if (caption) children.push(new Paragraph({ children: [new TextRun({ text: caption, italics: true, size: 18 })] }));
-          }
-          else if (text) children.push(new Paragraph({ text }));
+          } else if (text) children.push(new Paragraph({ text }));
         });
       });
 
@@ -101,13 +106,13 @@ export default function ExportCenter() {
 
   return (
     <main className="export-page">
-      <header className="export-header"><div><Link href={`/?issue=${issue.id}`} className="export-back"><ArrowLeft size={16} /> Studio</Link><span className="export-eyebrow">Production & delivery</span><h1>Export Center</h1><p>Prepare <strong>{issue.title}</strong> · Issue {issue.number} for review, print/PDF delivery, digital publication, or archival handoff.</p></div><div className="export-ready"><ShieldCheck size={18} /><div><strong>Preflight</strong><span>{passed}/{checks.length} checks passed</span></div></div></header>
+      <header className="export-header"><div><Link href={`/?issue=${issue.id}`} className="export-back"><ArrowLeft size={16} /> Studio</Link><span className="export-eyebrow">Production & delivery</span><h1>Export Center</h1><p>Prepare <strong>{issue.title}</strong> · Issue {issue.number} for review, print/PDF delivery, digital publication, or archival handoff. {syncState}</p></div><div className="export-ready"><ShieldCheck size={18} /><div><strong>Preflight</strong><span>{passed}/{checks.length} checks passed</span></div></div></header>
 
       <section className="export-grid">
-        <article className="export-card primary"><div className="export-icon"><Printer size={22}/></div><span>Print / PDF</span><h2>Production proof</h2><p>Open the selected issue’s digital edition, then print or save a PDF proof from the controlled publication view.</p><Link href={`/preview?issue=${issue.id}`}><Printer size={15}/>Open print view</Link></article>
-        <article className="export-card"><div className="export-icon"><Globe2 size={22}/></div><span>Digital edition</span><h2>Web publication</h2><p>Preview the responsive reading experience generated from this exact issue and its placed imagery.</p><Link href={`/preview?issue=${issue.id}`}><Globe2 size={15}/>Open digital edition</Link></article>
+        <article className="export-card primary"><div className="export-icon"><Printer size={22}/></div><span>Server PDF</span><h2>Production PDF</h2><p>Generate a deterministic server-rendered PDF using Chromium, the selected issue’s production geometry and its Cloudinary imagery.</p><a href={`/api/pdf?issue=${encodeURIComponent(issue.id)}`}><Printer size={15}/>Generate PDF</a></article>
+        <article className="export-card"><div className="export-icon"><Globe2 size={22}/></div><span>Digital edition</span><h2>Web publication</h2><p>Preview the responsive reading experience generated directly from the shared Neon issue and its placed imagery.</p><Link href={`/preview?issue=${issue.id}`}><Globe2 size={15}/>Open digital edition</Link></article>
         <article className="export-card"><div className="export-icon"><FileJson size={22}/></div><span>Archive</span><h2>Issue package</h2><p>Download the full Issue → Article → Block structure, including layout and image-placement metadata.</p><button onClick={downloadPackage}><Archive size={15}/>Download package</button></article>
-        <article className="export-card"><div className="export-icon"><FileText size={22}/></div><span>Editable document</span><h2>DOCX export</h2><p>Generate an editable Word document from the structured issue, preserving article hierarchy, body copy, decks, pull quotes, image references and captions.</p><button onClick={exportDocx}><FileText size={15}/>{docxState}</button></article>
+        <article className="export-card"><div className="export-icon"><FileText size={22}/></div><span>Editable document</span><h2>DOCX export</h2><p>Generate an editable Word document from the structured issue, preserving hierarchy, body copy, decks, pull quotes, image references and captions.</p><button onClick={exportDocx}><FileText size={15}/>{docxState}</button></article>
       </section>
 
       <section className="preflight-panel"><div><span className="export-eyebrow">Issue preflight</span><h2>Before final delivery</h2></div><div className="preflight-list">{checks.map((check)=><div key={check.title}>{check.pass?<CheckCircle2 size={17}/>:<TriangleAlert size={17}/>}<div><strong>{check.title}</strong><span>{check.copy}</span></div></div>)}</div></section>
