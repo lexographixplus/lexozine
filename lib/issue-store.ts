@@ -1,6 +1,6 @@
 import type { Issue } from "./editor-model";
 
-const STORAGE_KEY = "lexozine-issues-v1";
+export const ISSUE_CACHE_KEY = "lexozine-issues-v1";
 
 export interface IssueStore {
   list(): Promise<Issue[]>;
@@ -10,42 +10,102 @@ export interface IssueStore {
 }
 
 export class BrowserIssueStore implements IssueStore {
-  private readAll(): Issue[] {
+  readAll(): Issue[] {
     if (typeof window === "undefined") return [];
-    try {
-      return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]") as Issue[];
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(window.localStorage.getItem(ISSUE_CACHE_KEY) ?? "[]") as Issue[]; }
+    catch { return []; }
   }
 
-  private writeAll(issues: Issue[]) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(issues));
+  writeAll(issues: Issue[]) {
+    if (typeof window !== "undefined") window.localStorage.setItem(ISSUE_CACHE_KEY, JSON.stringify(issues));
   }
 
-  async list() {
-    return this.readAll().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }
-
-  async get(id: string) {
-    return this.readAll().find((issue) => issue.id === id) ?? null;
-  }
-
+  async list() { return this.readAll().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)); }
+  async get(id: string) { return this.readAll().find((issue) => issue.id === id) ?? null; }
   async save(issue: Issue) {
     const issues = this.readAll();
     const next = { ...issue, updatedAt: new Date().toISOString() };
-    const index = issues.findIndex((item) => item.id === issue.id);
-    if (index >= 0) issues[index] = next;
-    else issues.unshift(next);
+    const index = issues.findIndex((item) => item.id === next.id);
+    if (index >= 0) issues[index] = next; else issues.unshift(next);
     this.writeAll(issues);
     return next;
   }
+  async remove(id: string) { this.writeAll(this.readAll().filter((issue) => issue.id !== id)); }
+}
 
+export class RemoteIssueStore implements IssueStore {
+  async list() {
+    const response = await fetch("/api/issues", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Issue sync failed (${response.status})`);
+    return (await response.json()).issues as Issue[];
+  }
+  async get(id: string) {
+    const response = await fetch(`/api/issues/${encodeURIComponent(id)}`, { cache: "no-store" });
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`Issue fetch failed (${response.status})`);
+    return (await response.json()).issue as Issue;
+  }
+  async save(issue: Issue) {
+    const response = await fetch("/api/issues", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(issue),
+    });
+    if (!response.ok) throw new Error(`Issue save failed (${response.status})`);
+    return (await response.json()).issue as Issue;
+  }
   async remove(id: string) {
-    this.writeAll(this.readAll().filter((issue) => issue.id !== id));
+    const response = await fetch(`/api/issues/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!response.ok && response.status !== 404) throw new Error(`Issue deletion failed (${response.status})`);
   }
 }
 
-// The UI talks to IssueStore rather than directly to a database. A Neon-backed
-// implementation can replace BrowserIssueStore without changing editor features.
-export const issueStore = typeof window === "undefined" ? null : new BrowserIssueStore();
+export class HybridIssueStore implements IssueStore {
+  browser = new BrowserIssueStore();
+  remote = new RemoteIssueStore();
+
+  async list() {
+    try {
+      const issues = await this.remote.list();
+      this.browser.writeAll(issues);
+      return issues;
+    } catch {
+      return this.browser.list();
+    }
+  }
+  async get(id: string) {
+    try {
+      const issue = await this.remote.get(id);
+      if (issue) await this.cache(issue);
+      return issue;
+    } catch {
+      return this.browser.get(id);
+    }
+  }
+  async save(issue: Issue) {
+    const cached = await this.browser.save(issue);
+    try {
+      const saved = await this.remote.save(cached);
+      await this.replaceCachedId(cached.id, saved);
+      return saved;
+    } catch {
+      return cached;
+    }
+  }
+  async remove(id: string) {
+    await this.browser.remove(id);
+    try { await this.remote.remove(id); } catch { /* keep local deletion; bridge retries later */ }
+  }
+  private async cache(issue: Issue) {
+    const all = this.browser.readAll();
+    const index = all.findIndex((item) => item.id === issue.id);
+    if (index >= 0) all[index] = issue; else all.unshift(issue);
+    this.browser.writeAll(all);
+  }
+  private async replaceCachedId(oldId: string, issue: Issue) {
+    const all = this.browser.readAll().filter((item) => item.id !== oldId && item.id !== issue.id);
+    this.browser.writeAll([issue, ...all]);
+  }
+}
+
+export const issueStore = typeof window === "undefined" ? null : new HybridIssueStore();
