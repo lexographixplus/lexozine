@@ -1,6 +1,6 @@
 {
   "name": "lexozine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,10 +9,15 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@neondatabase/auth": "^0.2.0",
+    "@neondatabase/serverless": "^1.0.0",
+    "@sparticuz/chromium": "^149.0.0",
+    "cloudinary": "^2.7.0",
     "docx": "^9.7.1",
     "lucide-react": "^0.468.0",
     "mammoth": "^1.8.0",
     "next": "^16.0.0",
+    "puppeteer-core": "^25.8.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
