@@ -32,10 +32,10 @@ export async function GET(request: Request) {
   if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const issueId = new URL(request.url).searchParams.get("issue");
   const sql = db();
-  const rows = issueId
+  const rows = (issueId
     ? await sql`select * from media_assets where issue_id=${issueId}::uuid or issue_id is null order by created_at desc`
-    : await sql`select * from media_assets order by created_at desc`;
-  return NextResponse.json({ assets: (rows as any[]).map(asset) });
+    : await sql`select * from media_assets order by created_at desc`) as any[];
+  return NextResponse.json({ assets: rows.map(asset) });
 }
 
 export async function PATCH(request: Request) {
@@ -49,7 +49,7 @@ export async function PATCH(request: Request) {
         focal_y=coalesce(${body.focalY ?? null}, focal_y)
     where id=${body.id}::uuid
     returning *
-  `;
+  ` as any[];
   if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ asset: asset(rows[0]) });
 }
@@ -58,8 +58,8 @@ export async function DELETE(request: Request) {
   if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Asset id is required" }, { status: 400 });
-  const rows = await db()`select * from media_assets where id=${id}::uuid`;
-  const row: any = rows[0];
+  const rows = await db()`select * from media_assets where id=${id}::uuid` as any[];
+  const row = rows[0];
   if (!row) return new Response(null, { status: 204 });
   await getCloudinary().uploader.destroy(row.cloudinary_public_id, { resource_type: "image", invalidate: true });
   await db()`delete from media_assets where id=${id}::uuid`;
