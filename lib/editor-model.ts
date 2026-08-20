@@ -13,6 +13,11 @@ export type ThemeKey = "editorial" | "modern" | "cultural" | "minimal";
 export type ImageAlign = "left" | "center" | "right" | "full";
 export type ImageFit = "cover" | "contain";
 export type TypographyPreset = "editorial-serif" | "modern-sans" | "hybrid" | "minimal";
+export type CoverMode = "generated" | "imported";
+export type CoverAssetKind = "front" | "wrap";
+export type CoverTextAlign = "left" | "center" | "right";
+export type CoverOverlayType = "none" | "solid" | "gradient";
+export type PaletteSource = "theme" | "cover" | "custom";
 
 export type FrameGeometry = {
   x: number;
@@ -41,6 +46,48 @@ export type TypographySettings = {
   bodySize: number;
   leading: number;
   tracking: number;
+};
+
+export type IssuePalette = {
+  source: PaletteSource;
+  primary: string;
+  secondary: string;
+  background: string;
+  ink: string;
+  muted: string;
+};
+
+export type CoverAsset = {
+  id: string;
+  name: string;
+  url: string;
+  publicId?: string;
+  mimeType: string;
+  kind: CoverAssetKind;
+  createdAt: string;
+};
+
+export type CoverOverlay = {
+  type: CoverOverlayType;
+  color: string;
+  opacity: number;
+};
+
+export type CoverDesign = {
+  mode: CoverMode;
+  templateId: string;
+  masthead: string;
+  mainHeadline: string;
+  deck: string;
+  lines: string[];
+  textAlign: CoverTextAlign;
+  heroImageUrl?: string;
+  heroImagePublicId?: string;
+  heroFocalX: number;
+  heroFocalY: number;
+  overlay: CoverOverlay;
+  assets: CoverAsset[];
+  activeAssetId?: string;
 };
 
 export type StoryBlock = {
@@ -99,6 +146,8 @@ export type Issue = {
   coverImageUrl?: string;
   coverImagePublicId?: string;
   coverLines: string[];
+  cover?: CoverDesign;
+  palette?: IssuePalette;
   pages: IssuePage[];
   articles: Article[];
   production?: ProductionSettings;
