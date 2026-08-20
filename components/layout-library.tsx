@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, Check, Columns2, Columns3, Grid2X2, LayoutTemplate, Plus, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Columns2, Columns3, Grid2X2, LayoutTemplate, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Article, Issue } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
+import { issueStore } from "@/lib/issue-store";
 
 type LayoutPreset = {
   id: string;
@@ -26,43 +27,60 @@ const initialLayouts: LayoutPreset[] = [
   { id: "minimal-profile", name: "Minimal Profile", category: "Profile", description: "Single-subject feature with restrained typography and dramatic negative space.", columns: 1, imageRatio: "2:3", character: "Minimal", articleLayout: "feature" },
 ];
 
-const ISSUES_KEY = "lexozine-issues-v1";
-
 export default function LayoutLibrary() {
   const [layouts, setLayouts] = useState(initialLayouts);
   const [active, setActive] = useState(layouts[0].id);
   const [issue, setIssue] = useState<Issue>(() => createIssueTemplate("editorial"));
   const [articleId, setArticleId] = useState("");
-  const [status, setStatus] = useState("Choose an article and layout");
+  const [status, setStatus] = useState("Loading shared issue…");
 
   useEffect(() => {
-    try {
-      const issues = JSON.parse(localStorage.getItem(ISSUES_KEY) ?? "[]") as Issue[];
-      const requestedId = new URLSearchParams(window.location.search).get("issue");
-      const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
-      if (found) {
-        setIssue(found);
-        setArticleId(found.articles[0]?.id ?? "");
+    let alive = true;
+    async function load() {
+      try {
+        const issues = await issueStore?.list() ?? [];
+        if (!alive) return;
+        const requestedId = new URLSearchParams(window.location.search).get("issue");
+        const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
+        if (found) {
+          setIssue(found);
+          setArticleId(found.articles[0]?.id ?? "");
+          setStatus("Choose an article and layout");
+        } else {
+          setStatus("Create an issue before applying a layout");
+        }
+      } catch {
+        if (alive) setStatus("Issue state is temporarily unavailable");
       }
-    } catch {}
+    }
+    void load();
+    return () => { alive = false; };
   }, []);
 
   const activeLayout = useMemo(() => layouts.find((layout) => layout.id === active) ?? layouts[0], [layouts, active]);
 
-  function persist(nextIssue: Issue) {
-    const issues = (() => { try { return JSON.parse(localStorage.getItem(ISSUES_KEY) ?? "[]") as Issue[]; } catch { return []; } })();
-    const index = issues.findIndex((item) => item.id === nextIssue.id);
-    if (index >= 0) issues[index] = nextIssue; else issues.unshift(nextIssue);
-    localStorage.setItem(ISSUES_KEY, JSON.stringify(issues));
-    setIssue(nextIssue);
+  async function persist(nextIssue: Issue) {
+    const saved = await issueStore?.save(nextIssue) ?? nextIssue;
+    setIssue(saved);
+    return saved;
   }
 
-  function applyLayout() {
+  async function applyLayout() {
     if (!articleId) return;
-    const nextIssue = { ...issue, articles: issue.articles.map((article) => article.id === articleId ? { ...article, layout: activeLayout.articleLayout, columns: activeLayout.columns, updatedAt: new Date().toISOString() } : article), updatedAt: new Date().toISOString() };
-    persist(nextIssue);
-    const article = nextIssue.articles.find((item) => item.id === articleId);
-    setStatus(`${activeLayout.name} applied to ${article?.title ?? "article"}`);
+    setStatus("Applying layout…");
+    const now = new Date().toISOString();
+    const nextIssue = {
+      ...issue,
+      articles: issue.articles.map((article) => article.id === articleId ? { ...article, layout: activeLayout.articleLayout, columns: activeLayout.columns, updatedAt: now } : article),
+      updatedAt: now,
+    };
+    try {
+      const saved = await persist(nextIssue);
+      const article = saved.articles.find((item) => item.id === articleId);
+      setStatus(`${activeLayout.name} applied to ${article?.title ?? "article"}`);
+    } catch {
+      setStatus("Layout could not be saved. Try again.");
+    }
   }
 
   function duplicateLayout(layout: LayoutPreset) {
@@ -73,7 +91,7 @@ export default function LayoutLibrary() {
 
   return (
     <main className="layout-library-page">
-      <header className="layout-library-header"><div className="layout-title-wrap"><Link href={`/?issue=${issue.id}`} className="layout-back"><ArrowLeft size={16} /> Studio</Link><span className="layout-eyebrow">Lexozine design system</span><h1>Layout Library</h1><p>Reusable editorial systems for consistent, high-quality magazine pages and spreads.</p></div><div className="layout-apply-panel"><select value={articleId} onChange={(e)=>setArticleId(e.target.value)}>{issue.articles.map((article)=><option key={article.id} value={article.id}>{article.title}</option>)}</select><button className="layout-create" onClick={applyLayout}><Check size={16} /> Apply layout</button><small>{status}</small></div></header>
+      <header className="layout-library-header"><div className="layout-title-wrap"><Link href={`/?issue=${issue.id}`} className="layout-back"><ArrowLeft size={16} /> Studio</Link><span className="layout-eyebrow">Lexozine design system</span><h1>Layout Library</h1><p>Reusable editorial systems for consistent, high-quality magazine pages and spreads.</p></div><div className="layout-apply-panel"><select value={articleId} onChange={(e)=>setArticleId(e.target.value)}>{issue.articles.map((article)=><option key={article.id} value={article.id}>{article.title}</option>)}</select><button className="layout-create" onClick={()=>void applyLayout()}><Check size={16} /> Apply layout</button><small>{status}</small></div></header>
 
       <section className="layout-library-grid">{layouts.map((layout) => <article key={layout.id} className={`layout-preset-card ${active === layout.id ? "active" : ""}`} onClick={() => setActive(layout.id)}><div className={`layout-preview columns-${layout.columns}`}><div className="layout-preview-head" /><div className="layout-preview-deck" /><div className="layout-preview-image" /><div className="layout-preview-copy" /><div className="layout-preview-copy short" /><div className="layout-preview-accent" /></div><div className="layout-card-copy"><div className="layout-card-top"><span>{layout.category}</span><strong>{layout.character}</strong></div><h2>{layout.name}</h2><p>{layout.description}</p><div className="layout-specs"><span>{layout.columns === 3 ? <Columns3 size={13} /> : layout.columns === 2 ? <Columns2 size={13} /> : <Grid2X2 size={13} />} {layout.columns} column{layout.columns > 1 ? "s" : ""}</span><span><LayoutTemplate size={13} /> Image {layout.imageRatio}</span></div><button onClick={(event) => { event.stopPropagation(); duplicateLayout(layout); }}><Sparkles size={13} /> Duplicate & customise</button></div></article>)}</section>
     </main>
