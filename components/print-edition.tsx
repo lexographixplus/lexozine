@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Issue, StoryBlock } from "@/lib/editor-model";
 import { defaultFrameFor, defaultImagePlacement, themeTokens } from "@/lib/editor-model";
-import { resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
+import { resolveActiveCoverAsset, resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
 
 function Frame({ block }: { block: StoryBlock }) {
   const frame = block.frame ?? defaultFrameFor(block.type, block.order);
@@ -23,11 +23,26 @@ function Frame({ block }: { block: StoryBlock }) {
 export default function PrintEdition({ issue }: { issue: Issue }) {
   const palette = resolveIssuePalette(issue);
   const cover = resolveCoverDesign(issue);
+  const activeCoverAsset = resolveActiveCoverAsset(issue);
   const coverImageUrl = resolveCoverImageUrl(issue);
+  const importedCover = cover.mode === "imported" && Boolean(coverImageUrl);
+  const coverPhotoStyle: CSSProperties | undefined = coverImageUrl ? {
+    backgroundImage: `url(${coverImageUrl})`,
+    backgroundSize: activeCoverAsset?.kind === "wrap" ? "200% 100%" : cover.heroFit,
+    backgroundPosition: activeCoverAsset?.kind === "wrap" ? "right center" : `${cover.heroFocalX}% ${cover.heroFocalY}%`,
+    backgroundRepeat: "no-repeat",
+    backgroundColor: palette.background,
+  } : undefined;
+  const overlayStyle: CSSProperties = cover.overlay.type === "none"
+    ? { opacity: 0 }
+    : cover.overlay.type === "solid"
+      ? { background: cover.overlay.color, opacity: cover.overlay.opacity }
+      : { background: `linear-gradient(180deg, transparent 8%, ${cover.overlay.color} 100%)`, opacity: cover.overlay.opacity };
+
   return <main className="print-edition" style={{"--print-paper":palette.background,"--print-ink":palette.ink,"--print-accent":palette.primary} as CSSProperties}>
-    <section className="print-page print-cover">
-      {coverImageUrl ? <div className="print-cover-photo" style={{backgroundImage:`linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,${cover.overlay.opacity})),url(${coverImageUrl})`,backgroundPosition:`${cover.heroFocalX}% ${cover.heroFocalY}%`}}/>:<div className="print-cover-art"/>}
-      <div className="print-cover-top"><span>ISSUE {issue.number}</span><span>{issue.editionDate}</span></div><div className="print-masthead">{cover.masthead}</div><div className="print-cover-copy" style={{textAlign:cover.textAlign}}><span>{issue.title}</span><h1>{cover.mainHeadline}</h1><p>{cover.deck}</p></div><div className="print-coverlines">{cover.lines.map((line)=><span key={line}>{line}</span>)}</div>
+    <section className={`print-page print-cover ${importedCover ? "print-cover-imported" : "print-cover-generated"}`}>
+      {coverImageUrl ? <div className="print-cover-photo" style={coverPhotoStyle}/>:<div className="print-cover-art"/>}
+      {!importedCover ? <><div className="print-cover-overlay" style={overlayStyle}/><div className="print-cover-top"><span>ISSUE {issue.number}</span><span>{issue.editionDate}</span></div><div className="print-masthead">{cover.masthead}</div><div className="print-cover-copy" style={{textAlign:cover.textAlign}}><span>{issue.title}</span><h1>{cover.mainHeadline}</h1><p>{cover.deck}</p></div><div className="print-coverlines">{cover.lines.map((line)=><span key={line}>{line}</span>)}</div></> : null}
     </section>
     <section className="print-page print-toc"><div className="print-toc-number">{issue.number}</div><h1>Contents</h1><p>{issue.description}</p><ol>{issue.articles.map((article,index)=><li key={article.id}><span>{String(index+1).padStart(2,"0")}</span><div><strong>{article.title}</strong><small>{article.category} · {article.byline}</small></div></li>)}</ol></section>
     {issue.articles.map((article,index)=>{
