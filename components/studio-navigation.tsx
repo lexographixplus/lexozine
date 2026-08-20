@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   BookOpen,
+  Boxes,
   Image as ImageIcon,
   LayoutDashboard,
   Settings2,
@@ -14,6 +15,7 @@ import {
 const items = [
   { href: "/issues", label: "Issues", icon: BookOpen, scoped: false },
   { href: "/layouts", label: "Layouts", icon: LayoutDashboard, scoped: true },
+  { href: "/blocks", label: "Blocks", icon: Boxes, scoped: true },
   { href: "/styles", label: "Styles", icon: Type, scoped: true },
   { href: "/media", label: "Media", icon: ImageIcon, scoped: true },
   { href: "/assist", label: "Assist", icon: Sparkles, scoped: true },
