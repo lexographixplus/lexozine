@@ -4,6 +4,7 @@ import IssueDesignBridge from "@/components/issue-design-bridge";
 import "./globals.css";
 import "./editor-enhancements.css";
 import "./workspace-v2.css";
+import "./typography-tokens.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-display" });
