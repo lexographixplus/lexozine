@@ -39,6 +39,7 @@ export type StoryBlock = {
   content: string;
   order: number;
   imageUrl?: string;
+  imagePublicId?: string;
   caption?: string;
   focalPoint?: { x: number; y: number };
   placement?: ImagePlacement;
@@ -85,6 +86,7 @@ export type Issue = {
   description: string;
   theme: ThemeKey;
   coverImageUrl?: string;
+  coverImagePublicId?: string;
   coverLines: string[];
   pages: IssuePage[];
   articles: Article[];
@@ -98,10 +100,14 @@ export type MediaAsset = {
   id: string;
   name: string;
   url: string;
+  publicId?: string;
+  assetId?: string;
   mimeType: string;
   width?: number;
   height?: number;
   alt: string;
+  focalX?: number;
+  focalY?: number;
   createdAt: string;
 };
 
@@ -147,9 +153,7 @@ export const defaultImagePlacement: ImagePlacement = {
   alt: "",
 };
 
-export function createId(prefix: string) {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+export function createId(_prefix?: string) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  throw new Error("Secure UUID generation is unavailable in this environment");
 }
