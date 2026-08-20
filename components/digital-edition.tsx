@@ -1,24 +1,13 @@
 "use client";
 
 import { ArrowDown, Menu, Share2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { Issue, defaultImagePlacement, themeTokens } from "@/lib/editor-model";
 
-const ISSUES_KEY = "lexozine-issues-v1";
-
-export default function DigitalEdition() {
-  const [issue, setIssue] = useState<Issue>(() => createIssueTemplate("editorial"));
+export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue }) {
+  const [issue] = useState<Issue>(() => initialIssue ?? createIssueTemplate("editorial"));
   const [navOpen, setNavOpen] = useState(false);
-
-  useEffect(() => {
-    try {
-      const issues = JSON.parse(localStorage.getItem(ISSUES_KEY) ?? "[]") as Issue[];
-      const requestedId = new URLSearchParams(window.location.search).get("issue");
-      const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
-      if (found) setIssue(found);
-    } catch {}
-  }, []);
 
   const theme = themeTokens[issue.theme];
   const stories = useMemo(() => issue.articles, [issue.articles]);
@@ -41,7 +30,7 @@ export default function DigitalEdition() {
         <div className="edition-coverlines">{issue.coverLines.map((line) => <span key={line}>{line}</span>)}</div>
       </section>
 
-      <section className="edition-intro"><span className="edition-large-number">{issue.number}</span><div><span className="eyebrow">Editor's note</span><h2>{issue.title}</h2></div><p>{issue.description}</p></section>
+      <section className="edition-intro"><span className="edition-large-number">{issue.number}</span><div><span className="eyebrow">Editor&apos;s note</span><h2>{issue.title}</h2></div><p>{issue.description}</p></section>
 
       {stories.map((story, index) => {
         const body = story.blocks.filter((block) => block.type === "body").sort((a,b)=>a.order-b.order);
