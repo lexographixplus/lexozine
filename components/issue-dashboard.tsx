@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpen, CalendarDays, Copy, FilePlus2, LayoutTemplate, MoreHorizontal, Plus, Search } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, Copy, FilePlus2, LayoutTemplate, MessageSquareText, Plus, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createIssueTemplate, templateCatalog } from "@/lib/issue-templates";
@@ -57,16 +57,23 @@ export default function IssueDashboard() {
 
   function duplicate(issue: Issue) {
     const copy = structuredClone(issue);
-    copy.id = `${issue.id}-copy-${Date.now()}`;
+    const stamp = Date.now();
+    copy.id = `${issue.id}-copy-${stamp}`;
     copy.number = String(issues.length + 1).padStart(2, "0");
     copy.title = `${issue.title} Copy`;
     copy.status = "draft";
     copy.createdAt = new Date().toISOString();
     copy.updatedAt = copy.createdAt;
-    copy.articles = copy.articles.map((article) => ({ ...article, id: `${article.id}-copy-${Date.now()}-${Math.random().toString(36).slice(2,6)}` }));
+    copy.articles = copy.articles.map((article, index) => ({ ...article, id: `${article.id}-copy-${stamp}-${index}` }));
     const articleMap = new Map(issue.articles.map((article, index) => [article.id, copy.articles[index].id]));
-    copy.pages = copy.pages.map((page) => ({ ...page, id: `${page.id}-copy-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, articleId: page.articleId ? articleMap.get(page.articleId) : undefined }));
+    copy.pages = copy.pages.map((page, index) => ({ ...page, id: `${page.id}-copy-${stamp}-${index}`, articleId: page.articleId ? articleMap.get(page.articleId) : undefined }));
     persist([copy, ...issues]);
+  }
+
+  function removeIssue(issue: Issue) {
+    const confirmed = window.confirm(`Delete “${issue.title}” and its local issue data? This cannot be undone unless you exported a package.`);
+    if (!confirmed) return;
+    persist(issues.filter((item) => item.id !== issue.id));
   }
 
   return (
@@ -76,7 +83,7 @@ export default function IssueDashboard() {
       {showTemplates ? <section className="template-picker"><div className="template-picker-heading"><LayoutTemplate size={17} /><strong>Start from a publication system</strong></div><div className="template-cards">{templateCatalog.map((template) => <button key={template.id} onClick={() => createIssue(template.id)} className={`template-card template-${template.id}`}><div className="template-preview"><span>LEXOZINE</span><strong>Aa</strong><small>{template.name}</small></div><div><strong>{template.name}</strong><p>{template.description}</p></div><ArrowRight size={16} /></button>)}</div></section> : null}
       <section className="dashboard-toolbar"><div className="dashboard-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search issues" /></div><div className="dashboard-summary"><span>{issues.filter((item) => item.status === "draft").length} drafts</span><span>{issues.filter((item) => item.status === "review").length} in review</span><span>{issues.filter((item) => item.status === "published").length} published</span></div></section>
       <section className="issue-grid">
-        {filtered.map((issue) => <article key={issue.id} className="issue-card"><div className={`issue-cover-mini issue-theme-${issue.theme}`}><span className="mini-issue-number">ISSUE {issue.number}</span><strong>LEXOZINE</strong><div><small>{issue.editionDate}</small><h2>{issue.title}</h2></div></div><div className="issue-card-body"><div className="issue-card-topline"><span className={`status-pill status-${issue.status}`}>{issue.status}</span><button className="icon-button"><MoreHorizontal size={16} /></button></div><h3>{issue.title}</h3><p>{issue.description}</p><div className="issue-stats"><span><FilePlus2 size={13} /> {issue.articles.length} stories</span><span><CalendarDays size={13} /> {issue.editionDate}</span></div><div className="issue-card-actions"><Link href={`/?issue=${issue.id}`} className="primary-button">Open issue <ArrowRight size={15} /></Link><button className="icon-button" title="Duplicate issue" onClick={() => duplicate(issue)}><Copy size={15} /></button></div></div></article>)}
+        {filtered.map((issue) => <article key={issue.id} className="issue-card"><div className={`issue-cover-mini issue-theme-${issue.theme}`}><span className="mini-issue-number">ISSUE {issue.number}</span><strong>LEXOZINE</strong><div><small>{issue.editionDate}</small><h2>{issue.title}</h2></div></div><div className="issue-card-body"><div className="issue-card-topline"><span className={`status-pill status-${issue.status}`}>{issue.status}</span><Link href={`/review?issue=${issue.id}`} className="icon-button" title="Review issue"><MessageSquareText size={16} /></Link></div><h3>{issue.title}</h3><p>{issue.description}</p><div className="issue-stats"><span><FilePlus2 size={13} /> {issue.articles.length} stories</span><span><CalendarDays size={13} /> {issue.editionDate}</span></div><div className="issue-card-actions"><Link href={`/?issue=${issue.id}`} className="primary-button">Open issue <ArrowRight size={15} /></Link><Link href={`/review?issue=${issue.id}`} className="icon-button" title="Review"><MessageSquareText size={15} /></Link><button className="icon-button" title="Duplicate issue" onClick={() => duplicate(issue)}><Copy size={15} /></button><button className="icon-button dashboard-delete" title="Delete issue" onClick={() => removeIssue(issue)}><Trash2 size={15} /></button></div></div></article>)}
         <button className="new-issue-placeholder" onClick={() => setShowTemplates(true)}><Plus size={24} /><strong>Create another issue</strong><span>Choose a reusable editorial template</span></button>
       </section>
     </main>
