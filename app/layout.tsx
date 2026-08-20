@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import IssueDesignBridge from "@/components/issue-design-bridge";
+import Providers from "./providers";
+import "@neondatabase/auth-ui/css";
 import "./globals.css";
 import "./editor-enhancements.css";
 import "./workspace-v2.css";
@@ -17,7 +19,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable}`}><IssueDesignBridge />{children}</body>
+      <body className={`${inter.variable} ${playfair.variable}`}>
+        <Providers><IssueDesignBridge />{children}</Providers>
+      </body>
     </html>
   );
 }
