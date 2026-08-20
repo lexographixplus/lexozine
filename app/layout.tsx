@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import IssueDesignBridge from "@/components/issue-design-bridge";
+import PersistenceBridge from "@/components/persistence-bridge";
 import Providers from "./providers";
 import "@neondatabase/auth-ui/css";
 import "./globals.css";
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body className={`${inter.variable} ${playfair.variable}`}>
-        <Providers><IssueDesignBridge />{children}</Providers>
+        <Providers><IssueDesignBridge /><PersistenceBridge />{children}</Providers>
       </body>
     </html>
   );
