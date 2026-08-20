@@ -80,8 +80,9 @@ export function resolveProductionSettings(issue: Issue): ProductionSettings {
 export function resolveCoverDesign(issue: Issue): CoverDesign {
   const firstStory = issue.articles[0];
   const cover = issue.cover;
+  const legacyImported = Boolean(issue.coverImageUrl && !cover?.activeAssetId && !cover?.heroImageUrl);
   return {
-    mode: cover?.mode ?? (issue.coverImageUrl ? "imported" : "generated"),
+    mode: legacyImported ? "imported" : cover?.mode ?? (issue.coverImageUrl ? "imported" : "generated"),
     templateId: cover?.templateId ?? "cover-editorial",
     masthead: cover?.masthead ?? "LEXOZINE",
     mainHeadline: cover?.mainHeadline ?? firstStory?.title ?? issue.title,
