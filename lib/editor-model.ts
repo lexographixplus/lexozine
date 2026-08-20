@@ -10,6 +10,18 @@ export type BlockType =
   | "caption";
 
 export type ThemeKey = "editorial" | "modern" | "cultural" | "minimal";
+export type ImageAlign = "left" | "center" | "right" | "full";
+export type ImageFit = "cover" | "contain";
+
+export type ImagePlacement = {
+  width: number;
+  align: ImageAlign;
+  fit: ImageFit;
+  focalX: number;
+  focalY: number;
+  caption: string;
+  alt: string;
+};
 
 export type StoryBlock = {
   id: string;
@@ -19,6 +31,7 @@ export type StoryBlock = {
   imageUrl?: string;
   caption?: string;
   focalPoint?: { x: number; y: number };
+  placement?: ImagePlacement;
 };
 
 export type Article = {
@@ -44,6 +57,15 @@ export type IssuePage = {
   order: number;
 };
 
+export type ProductionSettings = {
+  pageSize: "A4" | "A5" | "US Letter" | "Square 210" | "Custom";
+  orientation: "portrait" | "landscape";
+  bleed: number;
+  safeMargin: number;
+  gutter: number;
+  baseline: number;
+};
+
 export type Issue = {
   id: string;
   title: string;
@@ -56,6 +78,7 @@ export type Issue = {
   coverLines: string[];
   pages: IssuePage[];
   articles: Article[];
+  production?: ProductionSettings;
   createdAt: string;
   updatedAt: string;
 };
@@ -76,6 +99,25 @@ export const themeTokens: Record<ThemeKey, { label: string; accent: string; pape
   modern: { label: "Modern", accent: "#2b63ff", paper: "#f4f6f8", ink: "#111827" },
   cultural: { label: "Cultural", accent: "#b3382f", paper: "#f1e5d3", ink: "#201914" },
   minimal: { label: "Minimal", accent: "#202020", paper: "#faf9f6", ink: "#171717" },
+};
+
+export const defaultProductionSettings: ProductionSettings = {
+  pageSize: "A4",
+  orientation: "portrait",
+  bleed: 3,
+  safeMargin: 12,
+  gutter: 6,
+  baseline: 12,
+};
+
+export const defaultImagePlacement: ImagePlacement = {
+  width: 65,
+  align: "center",
+  fit: "cover",
+  focalX: 50,
+  focalY: 50,
+  caption: "",
+  alt: "",
 };
 
 export function createId(prefix: string) {
