@@ -1,0 +1,25 @@
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth/server";
+import { getIssue, removeIssue } from "@/lib/server/issue-repository";
+
+export const dynamic = "force-dynamic";
+
+async function currentUser() {
+  const result = await auth.getSession() as any;
+  return result?.user ?? result?.data?.user ?? result?.data?.session?.user ?? null;
+}
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+  const issue = await getIssue(id);
+  if (!issue) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({ issue });
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+  await removeIssue(id);
+  return new Response(null, { status: 204 });
+}
