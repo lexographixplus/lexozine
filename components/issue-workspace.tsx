@@ -14,9 +14,11 @@ import {
   Pencil,
   Plus,
   Settings2,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { DragEvent, useEffect, useMemo, useState } from "react";
+import IssueNavigation from "@/components/issue-navigation";
 import type { Article, ArticleWorkflowStatus, Issue, IssuePage } from "@/lib/editor-model";
 import { createId } from "@/lib/editor-model";
 import { articleReadiness, articleWorkflowLabels, getArticleWorkflowStatus, setArticleWorkflowStatus } from "@/lib/editorial-workflow";
@@ -56,6 +58,8 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
   const [articleCreateError, setArticleCreateError] = useState("");
   const [editingIssueName, setEditingIssueName] = useState(false);
   const [issueNameDraft, setIssueNameDraft] = useState("");
+  const [draggedArticleId, setDraggedArticleId] = useState("");
+  const [dragOverArticleId, setDragOverArticleId] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -81,6 +85,27 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
     const pageOrder = new Map(issue.pages.filter((page) => page.articleId).map((page) => [page.articleId!, page.order]));
     return [...issue.articles].sort((a, b) => (pageOrder.get(a.id) ?? 999) - (pageOrder.get(b.id) ?? 999));
   }, [issue]);
+  const coverReady = Boolean(issue && (issue.coverImageUrl || issue.cover?.assets?.length || issue.cover?.mainHeadline));
+  const readinessTasks = useMemo(() => {
+    if (!issue) return [] as Array<{ id: string; title: string; detail: string; href: string }>;
+    const tasks: Array<{ id: string; title: string; detail: string; href: string }> = [];
+    if (!coverReady) tasks.push({ id: "cover", title: "Complete the cover", detail: "The issue still needs a cover treatment or image.", href: `/cover?issue=${issue.id}` });
+    if (!issue.articles.length) tasks.push({ id: "article", title: "Add the first article", detail: "The editorial sequence is still empty.", href: `#articles` });
+    for (const article of orderedArticles) {
+      const workflow = getArticleWorkflowStatus(issue, article.id);
+      const visibleBlocks = article.blocks.filter((block) => !block.layout?.hidden);
+      const hasHeadline = visibleBlocks.some((block) => block.type === "headline" && block.content.trim());
+      const imageBlocks = visibleBlocks.filter((block) => block.type === "image");
+      const hasImage = imageBlocks.some((block) => block.imageUrl);
+      const missingAlt = imageBlocks.some((block) => block.imageUrl && !(block.placement?.alt ?? "").trim());
+      const href = `/issues/${issue.id}/articles/${article.id}`;
+      if (!hasHeadline) tasks.push({ id: `${article.id}-headline`, title: `${article.title}: headline needed`, detail: "Add or restore a visible headline block.", href });
+      if (article.category !== "Poetry" && !hasImage) tasks.push({ id: `${article.id}-image`, title: `${article.title}: image needed`, detail: "Add publication imagery or intentionally use a poetry/text-led preset.", href });
+      if (missingAlt) tasks.push({ id: `${article.id}-alt`, title: `${article.title}: alt text needed`, detail: "One or more placed images are missing accessibility text.", href });
+      if (workflow !== "approved") tasks.push({ id: `${article.id}-workflow`, title: `${article.title}: ${articleWorkflowLabels[workflow]}`, detail: "Move the article through review and approval before publishing.", href });
+    }
+    return tasks;
+  }, [issue, orderedArticles, coverReady]);
 
   async function persist(next: Issue, note?: string) {
     const saved = await issueStore?.save({ ...next, updatedAt: new Date().toISOString() }) ?? next;
@@ -106,23 +131,43 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
     await persist(setArticleWorkflowStatus(issue, articleId, status), `Article moved to ${articleWorkflowLabels[status]}`);
   }
 
-  async function moveArticle(articleId: string, direction: -1 | 1) {
+  async function persistArticleOrder(articles: Article[], note = "Article order updated") {
     if (!issue) return;
-    const articles = [...orderedArticles];
-    const index = articles.findIndex((article) => article.id === articleId);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= articles.length) return;
-    [articles[index], articles[target]] = [articles[target], articles[index]];
     const articlePageIds = new Set(articles.map((article) => article.id));
     const nonArticlePages = issue.pages.filter((page) => !page.articleId || !articlePageIds.has(page.articleId));
     const baseOrder = nonArticlePages.length;
     const articlePages: IssuePage[] = articles.map((article, order) => {
       const existing = issue.pages.find((page) => page.articleId === article.id);
       return existing
-        ? { ...existing, order: baseOrder + order }
+        ? { ...existing, label: article.title, order: baseOrder + order }
         : { id: createId("page"), label: article.title, kind: "article", articleId: article.id, order: baseOrder + order };
     });
-    await persist({ ...issue, articles, pages: [...nonArticlePages, ...articlePages] }, "Article order updated");
+    await persist({ ...issue, articles, pages: [...nonArticlePages, ...articlePages] }, note);
+  }
+
+  async function moveArticle(articleId: string, direction: -1 | 1) {
+    const articles = [...orderedArticles];
+    const index = articles.findIndex((article) => article.id === articleId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= articles.length) return;
+    [articles[index], articles[target]] = [articles[target], articles[index]];
+    await persistArticleOrder(articles);
+  }
+
+  async function dropArticle(sourceId: string, targetId: string) {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    const articles = [...orderedArticles];
+    const from = articles.findIndex((article) => article.id === sourceId);
+    const to = articles.findIndex((article) => article.id === targetId);
+    if (from < 0 || to < 0) return;
+    const [moved] = articles.splice(from, 1);
+    articles.splice(to, 0, moved);
+    await persistArticleOrder(articles, "Article order updated by drag and drop");
+  }
+
+  function handleArticleDragStart(event: DragEvent<HTMLElement>, articleId: string) {
+    event.dataTransfer.effectAllowed = "move";
+    setDraggedArticleId(articleId);
   }
 
   async function addArticle() {
@@ -148,10 +193,15 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
     window.location.href = `/issues/${encodeURIComponent(saved.id)}/articles/${encodeURIComponent(article.id)}`;
   }
 
+  function openArticleCreator(note?: string) {
+    setShowArticleCreator(true);
+    setArticleCreateError("");
+    if (note) setMessage(note);
+    window.setTimeout(() => document.getElementById("articles")?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
+  }
+
   if (loading) return <main className="editorial-loading">Loading issue workspace…</main>;
   if (!issue || !readiness) return <main className="editorial-loading">Issue not found.</main>;
-
-  const coverReady = Boolean(issue.coverImageUrl || issue.cover?.assets?.length || issue.cover?.mainHeadline);
 
   return (
     <main className="issue-workspace-shell">
@@ -164,12 +214,14 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
         </div>
       </header>
 
+      <IssueNavigation issueId={issue.id} active="issue"/>
+
       <section className="issue-workspace-hero">
         <div>
           <span className="editorial-eyebrow">Issue {issue.number} · {issue.editionDate}</span>
           <div className="issue-title-row"><h1>{issue.title}</h1><button className="issue-title-edit" onClick={() => { setIssueNameDraft(issue.title); setEditingIssueName((value) => !value); }}><Pencil size={13}/> Rename</button></div>
           {editingIssueName ? <div className="issue-rename-panel"><input value={issueNameDraft} onChange={(event) => setIssueNameDraft(event.target.value)} aria-label="Issue name"/><button onClick={() => void saveIssueName()}>Save name</button><button className="secondary" onClick={() => { setIssueNameDraft(issue.title); setEditingIssueName(false); }}>Cancel</button></div> : null}
-          <p>{issue.description}</p>
+          <p>{issue.description || "Build the issue article by article, then review and publish when the editorial checklist is clear."}</p>
           {message ? <div className="editorial-message">{message}</div> : null}
         </div>
         <div className="readiness-card">
@@ -189,9 +241,22 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
         <div className="workflow-summary-card"><CheckCircle2 size={18}/><div><span>Approved</span><strong>{readiness.approved}</strong></div></div>
       </section>
 
-      <section className="issue-articles-section">
+      <section className="readiness-actions">
+        <div className="readiness-actions-card">
+          <header><h3>What needs attention</h3><span>{readinessTasks.length ? `${readinessTasks.length} action${readinessTasks.length === 1 ? "" : "s"}` : "Ready"}</span></header>
+          {readinessTasks.length ? <div className="readiness-task-list">{readinessTasks.slice(0, 8).map((task) => task.href.startsWith("#") ? <button key={task.id} className="readiness-task" onClick={() => openArticleCreator()}><FileText size={15}/><div><strong>{task.title}</strong><span>{task.detail}</span></div></button> : <Link key={task.id} className="readiness-task" href={task.href}><ArrowRight size={15}/><div><strong>{task.title}</strong><span>{task.detail}</span></div></Link>)}</div> : <div className="readiness-all-clear">No structural blockers detected. Continue the editorial review and final visual check before publishing.</div>}
+        </div>
+      </section>
+
+      {!issue.articles.length ? <section className="blank-issue-actions">
+        <button className="blank-issue-action" onClick={() => openArticleCreator()}><Plus size={18}/><strong>Add first article</strong><span>Name it, choose Poetry/Essay/Interview/etc., then customise it in the editor.</span></button>
+        <button className="blank-issue-action" onClick={() => openArticleCreator("Name the article first; once it opens, choose Import manuscript to map the document structure.")}><Upload size={18}/><strong>Import manuscript</strong><span>Create the article shell, then import DOCX/TXT/HTML with semantic mapping.</span></button>
+        <Link className="blank-issue-action" href={`/cover?issue=${issue.id}`}><ImageIcon size={18}/><strong>Design cover</strong><span>Start the visual identity while editorial content is being prepared.</span></Link>
+      </section> : null}
+
+      <section className="issue-articles-section" id="articles">
         <div className="issue-section-heading">
-          <div><span className="editorial-eyebrow">Editorial sequence</span><h2>Articles & pages</h2><p>Create the article with the right editorial preset, then edit both its content and composition freely.</p></div>
+          <div><span className="editorial-eyebrow">Editorial sequence</span><h2>Articles & pages</h2><p>Create the article with the right editorial preset, then drag to reorder and edit both content and composition freely.</p></div>
           <button onClick={() => { setShowArticleCreator((value) => !value); setArticleCreateError(""); }} className="editorial-button"><Plus size={15}/> {showArticleCreator ? "Close creator" : "Add article"}</button>
         </div>
 
@@ -210,12 +275,20 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
             const status = getArticleWorkflowStatus(issue, article.id);
             const missingImage = !article.blocks.some((block) => block.type === "image" && block.imageUrl && !block.layout?.hidden);
             return (
-              <article className="article-workflow-row" key={article.id}>
+              <article
+                className={`article-workflow-row ${draggedArticleId === article.id ? "dragging" : ""} ${dragOverArticleId === article.id ? "drag-target" : ""}`}
+                key={article.id}
+                draggable
+                onDragStart={(event) => handleArticleDragStart(event, article.id)}
+                onDragOver={(event) => { event.preventDefault(); setDragOverArticleId(article.id); }}
+                onDrop={(event) => { event.preventDefault(); void dropArticle(draggedArticleId, article.id); setDraggedArticleId(""); setDragOverArticleId(""); }}
+                onDragEnd={() => { setDraggedArticleId(""); setDragOverArticleId(""); }}
+              >
                 <div className="article-order">{String(index + 1).padStart(2, "0")}</div>
                 <div className="article-workflow-copy">
                   <div className="article-workflow-meta"><span>{article.category}</span><span>{article.layout} · {article.columns} col</span>{missingImage && article.category !== "Poetry" ? <span className="needs-media">Needs image</span> : null}</div>
                   <h3>{article.title}</h3>
-                  <small>{article.byline} · {article.readTime}</small>
+                  <small>{article.byline} · {article.readTime}</small><div className="drag-hint">Drag row to reorder</div>
                 </div>
                 <label className={`workflow-status status-${status}`}>
                   <select value={status} onChange={(event) => void changeStatus(article.id, event.target.value as ArticleWorkflowStatus)}>
@@ -237,7 +310,7 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
 
       <footer className="issue-workspace-footer">
         <Link href={`/studio?legacy=1&issue=${issue.id}`}><Settings2 size={14}/> Legacy full-spread Studio</Link>
-        <span>Release 0.6 editorial workflow · LexoStudio</span>
+        <span>Release 0.7 UX consolidation · LexoStudio</span>
       </footer>
     </main>
   );
