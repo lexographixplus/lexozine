@@ -29,6 +29,9 @@ import { clampLayoutSpan, defaultLayoutSettings, duplicateLayoutBlock, moveLayou
 import { issueStore } from "@/lib/issue-store";
 
 type EditorMode = "content" | "design";
+type TextBlockType = Exclude<BlockType, "image">;
+
+const textBlockTypes: TextBlockType[] = ["headline", "deck", "body", "pullquote", "sidebar", "caption"];
 
 const blockLabels: Record<BlockType, string> = {
   headline: "Headline",
@@ -93,6 +96,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
   const [issue, setIssue] = useState<Issue | null>(null);
   const [mode, setMode] = useState<EditorMode>("content");
   const [selectedBlockId, setSelectedBlockId] = useState("");
+  const [newBlockType, setNewBlockType] = useState<TextBlockType>("body");
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState("Loading…");
   const [dirty, setDirty] = useState(false);
@@ -179,6 +183,25 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
     replaceBlocks(nextBlocks);
   }
 
+  function changeSelectedType(nextType: TextBlockType) {
+    if (!article || !selectedBlock || selectedBlock.type === "image" || selectedBlock.type === nextType) return;
+    const defaults = defaultLayoutSettings(nextType, article.columns);
+    const nextLayout = {
+      ...defaults,
+      hidden: selectedBlock.layout?.hidden ?? defaults.hidden,
+      locked: selectedBlock.layout?.locked ?? defaults.locked,
+      span: clampLayoutSpan(selectedBlock.layout?.span ?? defaults.span, article.columns),
+    };
+    const nextBlocks = blocks.map((block) => block.id === selectedBlock.id ? { ...block, type: nextType, layout: nextLayout } : block);
+    const alreadyHasHeadline = blocks.some((block) => block.type === "headline" && block.id !== selectedBlock.id);
+    if (nextType === "headline" && !alreadyHasHeadline) {
+      const title = plainText(selectedBlock.content) || article.title;
+      updateArticle({ title, slug: slugify(title), blocks: nextBlocks });
+      return;
+    }
+    replaceBlocks(nextBlocks);
+  }
+
   function setStatus(nextStatus: ArticleWorkflowStatus) {
     if (!issue || !article) return;
     stage(setArticleWorkflowStatus(issue, article.id, nextStatus));
@@ -196,6 +219,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
     };
     replaceBlocks([...blocks, block]);
     setSelectedBlockId(block.id);
+    setMode("content");
   }
 
   function removeSelected() {
@@ -262,7 +286,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
       const title = plainText(imported[0]?.content ?? "") || article.title;
       updateArticle({ title, slug: slugify(title), blocks: nextBlocks });
       setSelectedBlockId(imported[0].id);
-      setSaveState(`${imported.length} blocks imported — save to keep changes`);
+      setSaveState(`${imported.length} blocks imported — review block types, then save`);
     } catch {
       setSaveState("Import failed — article left unchanged");
     } finally {
@@ -293,9 +317,15 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
           <h1 className="article-editor-title">{article.title}</h1>
           <div className="mode-tabs"><button className={mode === "content" ? "active" : ""} onClick={() => setMode("content")}><FileText size={12}/> Content</button><button className={mode === "design" ? "active" : ""} onClick={() => setMode("design")}><LayoutTemplate size={12}/> Design</button></div>
           <div className="article-block-list">
-            {blocks.map((block) => <button key={block.id} onClick={() => setSelectedBlockId(block.id)} className={`article-block-item ${selectedBlockId === block.id ? "active" : ""} ${block.layout?.hidden ? "hidden" : ""}`}><strong>{blockLabels[block.type]}</strong><small>{previewText(block)}</small></button>)}
+            {blocks.map((block) => <button key={block.id} onClick={() => { setSelectedBlockId(block.id); setMode("content"); }} className={`article-block-item ${selectedBlockId === block.id ? "active" : ""} ${block.layout?.hidden ? "hidden" : ""}`}><div className="article-block-meta"><strong>{blockLabels[block.type]}</strong><span>Edit</span></div><small>{previewText(block)}</small></button>)}
           </div>
-          <div className="editorial-add-row"><button onClick={() => addBlock("body")}><Plus size={11}/> Text</button><button onClick={() => addBlock("image")}><Plus size={11}/> Image</button><button onClick={() => addBlock("pullquote")}><Plus size={11}/> Quote</button><button onClick={() => addBlock("sidebar")}><Plus size={11}/> Sidebar</button></div>
+          <div className="block-add-composer">
+            <select value={newBlockType} onChange={(event) => setNewBlockType(event.target.value as TextBlockType)} aria-label="Text block type">
+              {textBlockTypes.map((type) => <option key={type} value={type}>{blockLabels[type]}</option>)}
+            </select>
+            <button onClick={() => addBlock(newBlockType)}><Plus size={11}/> Add text block</button>
+            <button onClick={() => addBlock("image")}><Plus size={11}/> Image</button>
+          </div>
         </aside>
 
         <section className="article-editor-center">
@@ -303,14 +333,14 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
             <div className="content-edit-card">
               <div className="content-card-heading"><div><span className="editorial-eyebrow">Content mode</span><h2>Edit the story</h2></div><span className={`content-save-state ${dirty ? "dirty" : ""}`}>{saveState}</span></div>
               <div className="manuscript-import-card">
-                <div><Upload size={18}/><div><strong>Import manuscript</strong><span>Bring a DOCX, TXT or HTML manuscript directly into this article. Existing image blocks are preserved.</span></div></div>
+                <div><Upload size={18}/><div><strong>Import manuscript</strong><span>Bring a DOCX, TXT or HTML manuscript directly into this article. Existing image blocks are preserved. Imported sections are auto-classified, then you can change any block type below.</span></div></div>
                 <button onClick={() => manuscriptInputRef.current?.click()}><Upload size={14}/> Choose file</button>
               </div>
               <div className="editorial-field"><span>Article title</span><input value={article.title} onChange={(event) => updateArticle({ title: event.target.value })}/><small>Synced with the primary headline used in preview and publication.</small></div>
               <div className="editorial-field"><span>Category</span><input value={article.category} onChange={(event) => updateArticle({ category: event.target.value })}/></div>
               <div className="editorial-field"><span>Byline</span><input value={article.byline} onChange={(event) => updateArticle({ byline: event.target.value })}/></div>
               <div className="editorial-field"><span>Read time</span><input value={article.readTime} onChange={(event) => updateArticle({ readTime: event.target.value })}/></div>
-              {selectedBlock ? <div className="content-block-editor"><span className="editorial-panel-label">Selected {blockLabels[selectedBlock.type]}</span>{selectedBlock.type === "image" ? <div className="editorial-field"><span>Image description / alt text</span><input value={selectedBlock.placement?.alt ?? ""} onChange={(event) => patchSelected({ placement: { ...(selectedBlock.placement ?? defaultImagePlacement), alt: event.target.value } })}/><span>Caption</span><input value={selectedBlock.placement?.caption ?? ""} onChange={(event) => patchSelected({ placement: { ...(selectedBlock.placement ?? defaultImagePlacement), caption: event.target.value } })}/><Link href={`/media?issue=${issue.id}`} className="editorial-button secondary"><ImageIcon size={14}/> Manage media</Link></div> : <RichTextEditor value={selectedBlock.content} onChange={(content) => patchSelected({ content })}/>}</div> : null}
+              {selectedBlock ? <div className="content-block-editor"><div className="block-editor-heading"><span className="editorial-panel-label">Selected {blockLabels[selectedBlock.type]}</span><span className="block-editor-id">Edit block</span></div>{selectedBlock.type === "image" ? <div className="editorial-field"><span>Image description / alt text</span><input value={selectedBlock.placement?.alt ?? ""} onChange={(event) => patchSelected({ placement: { ...(selectedBlock.placement ?? defaultImagePlacement), alt: event.target.value } })}/><span>Caption</span><input value={selectedBlock.placement?.caption ?? ""} onChange={(event) => patchSelected({ placement: { ...(selectedBlock.placement ?? defaultImagePlacement), caption: event.target.value } })}/><Link href={`/media?issue=${issue.id}`} className="editorial-button secondary"><ImageIcon size={14}/> Manage media</Link></div> : <><div className="editorial-field block-type-field"><span>Block type</span><select value={selectedBlock.type} onChange={(event) => changeSelectedType(event.target.value as TextBlockType)}>{textBlockTypes.map((type) => <option key={type} value={type}>{blockLabels[type]}</option>)}</select><small>Reclassify imported or existing text without losing its content.</small></div><RichTextEditor value={selectedBlock.content} onChange={(content) => patchSelected({ content })}/></>}</div> : null}
             </div>
           ) : (
             <div className="design-canvas-wrap">
@@ -334,7 +364,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
           <div className="editorial-field"><span>Article layout</span><select value={article.layout} onChange={(event) => updateArticle({ layout: event.target.value as Article["layout"] })}><option value="feature">Feature</option><option value="essay">Essay</option><option value="interview">Interview</option><option value="visual">Visual</option></select></div>
           <span className="editorial-panel-label">Columns</span><div className="span-buttons">{([1,2,3] as const).map((value) => <button key={value} className={article.columns === value ? "active" : ""} onClick={() => setColumns(value)}>{value}</button>)}</div>
 
-          {selectedBlock ? <><div style={{ height: 22 }}/><span className="editorial-panel-label">Selected block · {blockLabels[selectedBlock.type]}</span><div className="span-buttons">{([1,2,3] as const).filter((value) => value <= article.columns).map((value) => <button key={value} className={(selectedBlock.layout?.span ?? 1) === value ? "active" : ""} onClick={() => patchLayout({ span: value })}>Span {value}</button>)}</div><div className="block-control-grid"><button onClick={() => moveSelected(-1)}><ChevronUp size={12}/> Move up</button><button onClick={() => moveSelected(1)}><ChevronDown size={12}/> Move down</button><button onClick={() => patchLayout({ hidden: !selectedBlock.layout?.hidden })}>{selectedBlock.layout?.hidden ? <Eye size={12}/> : <EyeOff size={12}/>} {selectedBlock.layout?.hidden ? "Show" : "Hide"}</button><button onClick={() => patchLayout({ locked: !selectedBlock.layout?.locked })}>{selectedBlock.layout?.locked ? <Unlock size={12}/> : <Lock size={12}/>} {selectedBlock.layout?.locked ? "Unlock" : "Lock"}</button><button onClick={duplicateSelected}><Copy size={12}/> Duplicate</button><button className="danger" onClick={removeSelected}><Trash2 size={12}/> Remove</button></div></> : null}
+          {selectedBlock ? <><div style={{ height: 22 }}/><span className="editorial-panel-label">Selected block · {blockLabels[selectedBlock.type]}</span>{selectedBlock.type !== "image" ? <div className="editorial-field inspector-block-type"><span>Block type</span><select value={selectedBlock.type} onChange={(event) => changeSelectedType(event.target.value as TextBlockType)}>{textBlockTypes.map((type) => <option key={type} value={type}>{blockLabels[type]}</option>)}</select></div> : null}<div className="span-buttons">{([1,2,3] as const).filter((value) => value <= article.columns).map((value) => <button key={value} className={(selectedBlock.layout?.span ?? 1) === value ? "active" : ""} onClick={() => patchLayout({ span: value })}>Span {value}</button>)}</div><div className="block-control-grid"><button onClick={() => moveSelected(-1)}><ChevronUp size={12}/> Move up</button><button onClick={() => moveSelected(1)}><ChevronDown size={12}/> Move down</button><button onClick={() => patchLayout({ hidden: !selectedBlock.layout?.hidden })}>{selectedBlock.layout?.hidden ? <Eye size={12}/> : <EyeOff size={12}/>} {selectedBlock.layout?.hidden ? "Show" : "Hide"}</button><button onClick={() => patchLayout({ locked: !selectedBlock.layout?.locked })}>{selectedBlock.layout?.locked ? <Unlock size={12}/> : <Lock size={12}/>} {selectedBlock.layout?.locked ? "Unlock" : "Lock"}</button><button onClick={duplicateSelected}><Copy size={12}/> Duplicate</button><button className="danger" onClick={removeSelected}><Trash2 size={12}/> Remove</button></div></> : null}
 
           <div style={{ height: 22 }}/><button onClick={() => void saveAndGo(`/layouts?issue=${issue.id}&article=${article.id}`)} className="editorial-button secondary full-width"><LayoutTemplate size={14}/> Apply another layout</button>
           <div style={{ height: 8 }}/><Link href={`/issues/${issue.id}`} className="editorial-button secondary full-width"><CheckCircle2 size={14}/> Return to issue workflow</Link>
