@@ -41,6 +41,7 @@ export default function LayoutLibrary() {
   }, []);
 
   const activeLayout = useMemo(() => layoutPresets.find((layout) => layout.id === active) ?? layoutPresets[0], [active]);
+  const articleEditorHref = articleId ? `/issues/${issue.id}/articles/${articleId}` : `/issues/${issue.id}`;
 
   async function persist(nextIssue: Issue) {
     const saved = await issueStore?.save(nextIssue) ?? nextIssue;
@@ -61,7 +62,7 @@ export default function LayoutLibrary() {
       const saved = await persist(nextIssue);
       const article = saved.articles.find((item) => item.id === articleId);
       setApplied(true);
-      setStatus(`${activeLayout.name} applied to ${article?.title ?? "article"}. You can now reorder, hide, resize and duplicate its blocks.`);
+      setStatus(`${activeLayout.name} applied to ${article?.title ?? "article"}. Open Design mode to reorder, hide, resize and duplicate its blocks.`);
     } catch {
       setStatus("Layout could not be saved. Try again.");
     }
@@ -71,15 +72,15 @@ export default function LayoutLibrary() {
     <main className="layout-library-page">
       <header className="layout-library-header">
         <div className="layout-title-wrap">
-          <Link href={`/studio?issue=${issue.id}`} className="layout-back"><ArrowLeft size={16} /> Studio</Link>
-          <span className="layout-eyebrow">Lexozine design system · Release 0.5</span>
+          <Link href={`/issues/${issue.id}`} className="layout-back"><ArrowLeft size={16} /> Issue workspace</Link>
+          <span className="layout-eyebrow">Lexozine design system · Release 0.6</span>
           <h1>Layout Library</h1>
-          <p>Choose a composition as a starting point, then edit the actual page structure in Studio. Presets no longer lock the article into a fixed arrangement.</p>
+          <p>Choose a composition as a starting point, then refine the actual article in Design mode. Presets never lock the story into a fixed arrangement.</p>
         </div>
         <div className="layout-apply-panel">
           <select value={articleId} onChange={(e)=>{setArticleId(e.target.value);setApplied(false);}}>{issue.articles.map((article)=><option key={article.id} value={article.id}>{article.title}</option>)}</select>
           <button className="layout-create" onClick={()=>void applyLayout()}><Check size={16} /> Apply & customise</button>
-          <Link className="layout-continue" href={`/studio?issue=${issue.id}`}>{applied ? "Edit composition in Studio" : "Continue without layout"}</Link>
+          <Link className="layout-continue" href={articleEditorHref}>{applied ? "Open article in Design mode" : "Continue without layout"}</Link>
           <small>{status}</small>
         </div>
       </header>
