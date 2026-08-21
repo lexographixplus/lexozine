@@ -5,6 +5,7 @@ export const PUBLIC_READER_ORIGIN = process.env.NEXT_PUBLIC_READER_ORIGIN ?? "ht
 const RESERVED_PUBLICATION_SLUGS = new Set([
   "api",
   "auth",
+  "studio",
   "issues",
   "canvas",
   "cover",
