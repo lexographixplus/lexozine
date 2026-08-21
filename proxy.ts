@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth, authConfigured } from "@/lib/auth/server";
 
-const protectedProxy = auth.middleware({ loginUrl: "/auth/sign-in" });
+const protectedProxy = auth.middleware({ loginUrl: "/studio" });
 
 export default function proxy(request: NextRequest) {
   if (!authConfigured) {
@@ -16,7 +16,6 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
     "/issues/:path*",
     "/canvas/:path*",
     "/cover/:path*",
