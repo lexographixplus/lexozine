@@ -117,5 +117,5 @@ export function resolveCoverAspectRatio(issue: Issue, kind: "front" | "wrap" = "
   const dimensions = pageDimensionsMm[production.pageSize] ?? { width: 210, height: 297 };
   const width = production.orientation === "landscape" ? dimensions.height : dimensions.width;
   const height = production.orientation === "landscape" ? dimensions.width : dimensions.height;
-  return kind === "wrap" ? (width * 2) / height : width / height;
+  return String(kind === "wrap" ? (width * 2) / height : width / height);
 }
