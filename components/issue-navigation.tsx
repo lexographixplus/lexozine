@@ -2,13 +2,15 @@
 
 import { BookOpen, CheckCircle2, Eye, FileText, ImageIcon, Images, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
+import type { MouseEvent } from "react";
 
 type IssueNavigationProps = {
   issueId: string;
   active?: "issue" | "articles" | "cover" | "media" | "review" | "preview";
+  onNavigate?: (href: string) => void | Promise<void>;
 };
 
-export default function IssueNavigation({ issueId, active = "issue" }: IssueNavigationProps) {
+export default function IssueNavigation({ issueId, active = "issue", onNavigate }: IssueNavigationProps) {
   const items = [
     { id: "issue" as const, label: "Issue", icon: LayoutDashboard, href: `/issues/${issueId}` },
     { id: "articles" as const, label: "Articles", icon: FileText, href: `/issues/${issueId}#articles` },
@@ -18,12 +20,18 @@ export default function IssueNavigation({ issueId, active = "issue" }: IssueNavi
     { id: "preview" as const, label: "Preview", icon: Eye, href: `/preview?issue=${issueId}` },
   ];
 
+  function handleClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
+    if (!onNavigate) return;
+    event.preventDefault();
+    void onNavigate(href);
+  }
+
   return (
     <nav className="issue-context-nav" aria-label="Issue workflow">
       <div className="issue-context-brand"><BookOpen size={14}/><span>Issue workflow</span></div>
       <div className="issue-context-links">
         {items.map(({ id, label, icon: Icon, href }) => (
-          <Link key={id} href={href} className={active === id ? "active" : ""}>
+          <Link key={id} href={href} onClick={(event) => handleClick(event, href)} className={active === id ? "active" : ""}>
             <Icon size={13}/><span>{label}</span>
           </Link>
         ))}
