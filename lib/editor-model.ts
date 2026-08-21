@@ -1,4 +1,5 @@
 export type IssueStatus = "draft" | "review" | "published";
+export type PublicationVisibility = "public" | "unlisted" | "private";
 export type PageKind = "cover" | "toc" | "article";
 export type BlockType =
   | "headline"
@@ -153,6 +154,9 @@ export type Issue = {
   coverLines: string[];
   cover?: CoverDesign;
   palette?: IssuePalette;
+  publicSlug?: string;
+  visibility?: PublicationVisibility;
+  publishedAt?: string;
   pages: IssuePage[];
   articles: Article[];
   production?: ProductionSettings;
