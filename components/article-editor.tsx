@@ -2,7 +2,6 @@
 
 import {
   ArrowLeft,
-  ArrowRight,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -17,12 +16,13 @@ import {
   Plus,
   Trash2,
   Unlock,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import RichTextEditor from "@/components/rich-text-editor";
 import type { Article, ArticleWorkflowStatus, BlockType, Issue, StoryBlock } from "@/lib/editor-model";
-import { createId, defaultImagePlacement, defaultProductionSettings, themeTokens } from "@/lib/editor-model";
+import { createId, defaultImagePlacement, themeTokens } from "@/lib/editor-model";
 import { articleWorkflowLabels, getArticleWorkflowStatus, setArticleWorkflowStatus } from "@/lib/editorial-workflow";
 import { clampLayoutSpan, defaultLayoutSettings, duplicateLayoutBlock, moveLayoutBlock, patchBlockLayout } from "@/lib/layout-composer";
 import { issueStore } from "@/lib/issue-store";
@@ -44,7 +44,16 @@ function previewText(block: StoryBlock) {
   return block.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || `Empty ${blockLabels[block.type].toLowerCase()}`;
 }
 
+function importedTextBlocks(text: string, columns: 1 | 2 | 3): StoryBlock[] {
+  const parts = text.replace(/\r/g, "").split(/\n{2,}|\n(?=[A-Z][^\n]{0,100}$)/g).map((item) => item.trim()).filter(Boolean);
+  return parts.map((content, index) => {
+    const type: BlockType = index === 0 ? "headline" : index === 1 && content.length < 220 ? "deck" : content.length < 100 && index > 2 ? "pullquote" : "body";
+    return { id: createId("block"), type, content, order: index, layout: defaultLayoutSettings(type, columns) };
+  });
+}
+
 export default function ArticleEditor({ issueId, articleId }: { issueId: string; articleId: string }) {
+  const manuscriptInputRef = useRef<HTMLInputElement>(null);
   const [issue, setIssue] = useState<Issue | null>(null);
   const [mode, setMode] = useState<EditorMode>("content");
   const [selectedBlockId, setSelectedBlockId] = useState("");
@@ -159,15 +168,49 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
     await updateArticle({ columns, blocks: nextBlocks });
   }
 
+  async function handleManuscriptImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !article) return;
+    setSaveState(`Importing ${file.name}…`);
+    try {
+      let text = "";
+      if (file.name.toLowerCase().endsWith(".docx")) {
+        const mammoth = await import("mammoth");
+        text = (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+      } else {
+        text = await file.text();
+        if (file.name.toLowerCase().endsWith(".html")) text = new DOMParser().parseFromString(text, "text/html").body.innerText;
+      }
+      const imported = importedTextBlocks(text, article.columns);
+      if (!imported.length) throw new Error("No readable text found");
+      const existingMedia = blocks.filter((block) => block.type === "image");
+      const nextBlocks = [...imported, ...existingMedia].map((block, order) => ({ ...block, order }));
+      const title = imported[0]?.content.replace(/<[^>]+>/g, "").trim() || article.title;
+      await updateArticle({
+        title,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+        blocks: nextBlocks,
+      });
+      setSelectedBlockId(imported[0].id);
+      setSaveState(`${imported.length} manuscript blocks imported`);
+    } catch {
+      setSaveState("Import failed — article left unchanged");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   if (loading) return <main className="editorial-loading">Loading article editor…</main>;
   if (!issue || !article) return <main className="editorial-loading">Article not found.</main>;
 
   return (
     <main className="article-editor-shell">
+      <input ref={manuscriptInputRef} type="file" accept=".docx,.txt,.html" hidden onChange={handleManuscriptImport}/>
       <header className="editorial-topbar">
         <Link href={`/issues/${issue.id}`} className="editorial-back"><ArrowLeft size={16}/> Issue workspace</Link>
         <div className="editorial-brand"><strong>{article.title}</strong><span>{saveState} · {articleWorkflowLabels[status]}</span></div>
         <div className="editorial-actions">
+          <button onClick={() => manuscriptInputRef.current?.click()} className="editorial-button secondary"><Upload size={15}/> Import</button>
           <Link href={`/layouts?issue=${issue.id}&article=${article.id}`} className="editorial-button secondary"><LayoutTemplate size={15}/> Layouts</Link>
           <Link href={`/preview?issue=${issue.id}`} className="editorial-button"><MonitorUp size={15}/> Preview</Link>
         </div>
