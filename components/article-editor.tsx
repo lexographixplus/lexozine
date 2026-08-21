@@ -27,15 +27,17 @@ import { createId, defaultImagePlacement, themeTokens } from "@/lib/editor-model
 import { articleWorkflowLabels, getArticleWorkflowStatus, setArticleWorkflowStatus } from "@/lib/editorial-workflow";
 import { clampLayoutSpan, defaultLayoutSettings, duplicateLayoutBlock, moveLayoutBlock, patchBlockLayout } from "@/lib/layout-composer";
 import { issueStore } from "@/lib/issue-store";
+import { blocksFromPlainText, blocksFromStructuredHtml, mammothStyleMap } from "@/lib/manuscript-import";
 
 type EditorMode = "content" | "design";
 type TextBlockType = Exclude<BlockType, "image">;
 
-const textBlockTypes: TextBlockType[] = ["headline", "deck", "body", "pullquote", "sidebar", "caption"];
+const textBlockTypes: TextBlockType[] = ["headline", "deck", "subheading", "body", "pullquote", "sidebar", "caption"];
 
 const blockLabels: Record<BlockType, string> = {
   headline: "Headline",
   deck: "Deck",
+  subheading: "Subheading",
   body: "Body text",
   pullquote: "Pull quote",
   sidebar: "Sidebar",
@@ -54,14 +56,6 @@ function slugify(value: string) {
 function previewText(block: StoryBlock) {
   if (block.type === "image") return block.placement?.alt || block.caption || "Image block";
   return plainText(block.content) || `Empty ${blockLabels[block.type].toLowerCase()}`;
-}
-
-function importedTextBlocks(text: string, columns: 1 | 2 | 3): StoryBlock[] {
-  const parts = text.replace(/\r/g, "").split(/\n{2,}|\n(?=[A-Z][^\n]{0,100}$)/g).map((item) => item.trim()).filter(Boolean);
-  return parts.map((content, index) => {
-    const type: BlockType = index === 0 ? "headline" : index === 1 && content.length < 220 ? "deck" : content.length < 100 && index > 2 ? "pullquote" : "body";
-    return { id: createId("block"), type, content, order: index, layout: defaultLayoutSettings(type, columns) };
-  });
 }
 
 function syncPrimaryHeadline(article: Article, title: string): Article {
@@ -212,7 +206,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
     const block: StoryBlock = {
       id: createId("block"),
       type,
-      content: type === "headline" ? "New headline" : type === "deck" ? "Add a supporting deck." : type === "pullquote" ? "Add a memorable pull quote." : type === "sidebar" ? "Add sidebar content." : type === "caption" ? "Image caption" : type === "image" ? "" : "Begin writing here.",
+      content: type === "headline" ? "New headline" : type === "deck" ? "Add a supporting deck." : type === "subheading" ? "Add a section heading." : type === "pullquote" ? "Add a memorable pull quote." : type === "sidebar" ? "Add sidebar content." : type === "caption" ? "Image caption" : type === "image" ? "" : "Begin writing here.",
       order: blocks.length,
       layout: defaultLayoutSettings(type, article.columns),
       placement: type === "image" ? { ...defaultImagePlacement } : undefined,
@@ -271,22 +265,30 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
     if (!file || !article) return;
     setSaveState(`Importing ${file.name}…`);
     try {
-      let text = "";
-      if (file.name.toLowerCase().endsWith(".docx")) {
+      const lowerName = file.name.toLowerCase();
+      let imported: StoryBlock[] = [];
+      if (lowerName.endsWith(".docx")) {
         const mammoth = await import("mammoth");
-        text = (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+        const result = await mammoth.convertToHtml(
+          { arrayBuffer: await file.arrayBuffer() },
+          { styleMap: mammothStyleMap },
+        );
+        imported = blocksFromStructuredHtml(result.value, article.columns);
+      } else if (lowerName.endsWith(".html") || lowerName.endsWith(".htm")) {
+        imported = blocksFromStructuredHtml(await file.text(), article.columns);
       } else {
-        text = await file.text();
-        if (file.name.toLowerCase().endsWith(".html")) text = new DOMParser().parseFromString(text, "text/html").body.innerText;
+        imported = blocksFromPlainText(await file.text(), article.columns);
       }
-      const imported = importedTextBlocks(text, article.columns);
       if (!imported.length) throw new Error("No readable text found");
       const existingMedia = blocks.filter((block) => block.type === "image");
       const nextBlocks = [...imported, ...existingMedia].map((block, order) => ({ ...block, order }));
-      const title = plainText(imported[0]?.content ?? "") || article.title;
-      updateArticle({ title, slug: slugify(title), blocks: nextBlocks });
+      const importedHeadline = imported.find((block) => block.type === "headline");
+      const importedTitle = importedHeadline ? plainText(importedHeadline.content) : "";
+      if (importedTitle) updateArticle({ title: importedTitle, slug: slugify(importedTitle), blocks: nextBlocks });
+      else updateArticle({ blocks: nextBlocks });
       setSelectedBlockId(imported[0].id);
-      setSaveState(`${imported.length} blocks imported — review block types, then save`);
+      const mappedTypes = Array.from(new Set(imported.map((block) => blockLabels[block.type]))).join(", ");
+      setSaveState(`${imported.length} structured blocks imported (${mappedTypes}) — review, then save`);
     } catch {
       setSaveState("Import failed — article left unchanged");
     } finally {
@@ -299,7 +301,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
 
   return (
     <main className="article-editor-shell">
-      <input ref={manuscriptInputRef} type="file" accept=".docx,.txt,.html" hidden onChange={handleManuscriptImport}/>
+      <input ref={manuscriptInputRef} type="file" accept=".docx,.txt,.html,.htm" hidden onChange={handleManuscriptImport}/>
       <header className="editorial-topbar article-editor-topbar">
         <Link href={`/issues/${issue.id}`} className="editorial-back"><ArrowLeft size={16}/> Issue workspace</Link>
         <div className="editorial-brand"><strong>{article.title}</strong><span>{saveState} · {articleWorkflowLabels[status]}</span></div>
@@ -333,7 +335,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
             <div className="content-edit-card">
               <div className="content-card-heading"><div><span className="editorial-eyebrow">Content mode</span><h2>Edit the story</h2></div><span className={`content-save-state ${dirty ? "dirty" : ""}`}>{saveState}</span></div>
               <div className="manuscript-import-card">
-                <div><Upload size={18}/><div><strong>Import manuscript</strong><span>Bring a DOCX, TXT or HTML manuscript directly into this article. Existing image blocks are preserved. Imported sections are auto-classified, then you can change any block type below.</span></div></div>
+                <div><Upload size={18}/><div><strong>Import manuscript</strong><span>Bring a DOCX, TXT or HTML manuscript directly into this article. Word/HTML headings, paragraphs, quotes, captions and lists are mapped into editable Lexozine blocks; existing image blocks are preserved.</span></div></div>
                 <button onClick={() => manuscriptInputRef.current?.click()}><Upload size={14}/> Choose file</button>
               </div>
               <div className="editorial-field"><span>Article title</span><input value={article.title} onChange={(event) => updateArticle({ title: event.target.value })}/><small>Synced with the primary headline used in preview and publication.</small></div>
