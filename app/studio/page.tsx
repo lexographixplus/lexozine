@@ -1,12 +1,15 @@
 import { AuthView } from "@neondatabase/auth-ui";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import StudioWorkspace from "@/components/studio-workspace";
-import { auth } from "@/lib/auth/server";
+import { auth, authConfigured } from "@/lib/auth/server";
 import "../auth/auth.css";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudioPage() {
+  if (!authConfigured) redirect("/auth/setup-required");
+
   const { data: session } = await auth.getSession();
 
   if (session?.user) {
