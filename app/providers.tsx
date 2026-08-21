@@ -15,7 +15,7 @@ export default function Providers({ children }: { children: ReactNode }) {
       navigate={router.push}
       replace={router.replace}
       onSessionChange={() => router.refresh()}
-      redirectTo="/issues"
+      redirectTo="/studio"
       Link={Link}
     >
       {children}
