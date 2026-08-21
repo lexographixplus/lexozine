@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import StudioWorkspace from "@/components/studio-workspace";
 import { auth, authConfigured } from "@/lib/auth/server";
 import "../auth/auth.css";
+import "./composer.css";
 
 export const dynamic = "force-dynamic";
 
