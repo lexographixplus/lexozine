@@ -19,16 +19,25 @@ type Props = {
   ariaLabel?: string;
 };
 
-const allowedTags = new Set(["B", "STRONG", "I", "EM", "U", "P", "BR", "UL", "OL", "LI", "BLOCKQUOTE", "SPAN", "DIV"]);
+const allowedTags = new Set(["B", "STRONG", "I", "EM", "U", "S", "STRIKE", "SUP", "SUB", "A", "P", "BR", "UL", "OL", "LI", "BLOCKQUOTE", "SPAN", "DIV"]);
+
+function escapeHtml(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 function sanitizeNode(node: Node): string {
-  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+  if (node.nodeType === Node.TEXT_NODE) return escapeHtml(node.textContent ?? "");
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
   const element = node as HTMLElement;
   if (!allowedTags.has(element.tagName)) return Array.from(element.childNodes).map(sanitizeNode).join("");
   const tag = element.tagName.toLowerCase();
   const children = Array.from(element.childNodes).map(sanitizeNode).join("");
   if (tag === "br") return "<br>";
+  if (tag === "a") {
+    const href = element.getAttribute("href");
+    const safeHref = href && /^(https?:|mailto:)/i.test(href) ? ` href="${href.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}"` : "";
+    return `<a${safeHref}>${children}</a>`;
+  }
   return `<${tag}>${children}</${tag}>`;
 }
 
