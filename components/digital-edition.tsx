@@ -1,9 +1,11 @@
 "use client";
 
 import { ArrowDown, Menu, Share2 } from "lucide-react";
+import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import { createIssueTemplate } from "@/lib/issue-templates";
-import { Issue, defaultImagePlacement } from "@/lib/editor-model";
+import { Issue, StoryBlock, defaultImagePlacement } from "@/lib/editor-model";
+import { defaultLayoutSettings } from "@/lib/layout-composer";
 import { resolveActiveCoverAsset, resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
 
 export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue }) {
@@ -23,6 +25,21 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
     else await navigator.clipboard.writeText(url);
   }
 
+  function renderBlock(block: StoryBlock, columns: 1 | 2 | 3) {
+    const settings = { ...defaultLayoutSettings(block.type, columns), ...(block.layout ?? {}) };
+    if (settings.hidden) return null;
+    const span = Math.max(1, Math.min(columns, settings.span));
+    const placement = block.placement ?? defaultImagePlacement;
+    const style = { gridColumn: `span ${span}` };
+    if (block.type === "image") return <figure key={block.id} className="edition-composer-block edition-composer-image" style={style}>{block.imageUrl ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={block.imageUrl} alt={placement.alt} style={{objectPosition:`${placement.focalX}% ${placement.focalY}%`,objectFit:placement.fit}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</> : <div className="edition-composer-placeholder">Editorial image area</div>}</figure>;
+    if (block.type === "headline") return <div key={block.id} className="edition-composer-block edition-composer-headline" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+    if (block.type === "deck") return <div key={block.id} className="edition-composer-block edition-composer-deck" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+    if (block.type === "pullquote") return <blockquote key={block.id} className="edition-composer-block edition-composer-quote" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+    if (block.type === "sidebar") return <aside key={block.id} className="edition-composer-block edition-composer-sidebar" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+    if (block.type === "caption") return <div key={block.id} className="edition-composer-block edition-composer-caption" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+    return <div key={block.id} className="edition-composer-block edition-composer-body" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+  }
+
   const coverArtStyle = coverImageUrl ? {
     backgroundImage: `url(${coverImageUrl})`,
     backgroundSize: activeCoverAsset?.kind === "wrap" ? "200% 100%" : cover.heroFit,
@@ -37,7 +54,7 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
       : { background: `linear-gradient(180deg, transparent 8%, ${cover.overlay.color} 100%)`, opacity: cover.overlay.opacity };
 
   return (
-    <main className="edition-shell" style={{ "--edition-accent": palette.primary } as React.CSSProperties}>
+    <main className="edition-shell" style={{ "--edition-accent": palette.primary } as CSSProperties}>
       <header className="edition-nav"><button className="edition-menu" onClick={() => setNavOpen((value) => !value)} aria-label="Toggle contents"><Menu size={18} /></button><div className="edition-brand">{cover.masthead}</div><div className="edition-meta">ISSUE {issue.number} · {issue.editionDate.toUpperCase()}</div><button className="edition-share" onClick={share}><Share2 size={16} /><span>Share</span></button></header>
 
       {navOpen ? <aside className="edition-drawer"><span className="eyebrow">In this issue</span>{stories.map((story, index) => <a key={story.id} href={`#story-${index + 1}`} onClick={() => setNavOpen(false)}><span>{String(index + 1).padStart(2,"0")}</span>{story.title}</a>)}</aside> : null}
@@ -50,11 +67,8 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
       <section className="edition-intro"><span className="edition-large-number">{issue.number}</span><div><span className="eyebrow">Editor&apos;s note</span><h2>{issue.title}</h2></div><p>{issue.description}</p></section>
 
       {stories.map((story, index) => {
-        const body = story.blocks.filter((block) => block.type === "body").sort((a,b)=>a.order-b.order);
-        const quote = story.blocks.find((block) => block.type === "pullquote");
-        const image = story.blocks.find((block) => block.type === "image" && block.imageUrl);
-        const placement = image?.placement ?? defaultImagePlacement;
-        return <article id={`story-${index + 1}`} key={story.id} className={`edition-story story-layout-${story.layout}`}><header className="edition-story-head"><div className="edition-story-index">{String(index+1).padStart(2,"0")}</div><div><span className="edition-story-category">{story.category}</span><h2>{story.title}</h2><div dangerouslySetInnerHTML={{ __html: story.blocks.find((block) => block.type === "deck")?.content ?? "" }} /><div className="edition-byline"><span>{story.byline}</span><span>{story.readTime}</span></div></div></header>{image?.imageUrl ? <figure className="edition-visual has-image">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={image.imageUrl} alt={placement.alt} style={{objectPosition:`${placement.focalX}% ${placement.focalY}%`,objectFit:placement.fit}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</figure> : <div className={`edition-visual visual-${index + 1}`}><span>Editorial image area</span></div>}<div className="edition-story-body"><div className="edition-prose">{body.map((block, bodyIndex) => <div key={block.id} className={bodyIndex === 0 ? "edition-dropcap" : ""} dangerouslySetInnerHTML={{__html:block.content}} />)}</div>{quote ? <blockquote dangerouslySetInnerHTML={{__html:quote.content}} /> : null}</div></article>;
+        const visibleBlocks = [...story.blocks].sort((a,b)=>a.order-b.order).filter((block)=>!block.layout?.hidden);
+        return <article id={`story-${index + 1}`} key={story.id} className={`edition-story story-layout-${story.layout} edition-composed-story`}><header className="edition-story-head edition-composed-head"><div className="edition-story-index">{String(index+1).padStart(2,"0")}</div><div><span className="edition-story-category">{story.category}</span><div className="edition-byline"><span>{story.byline}</span><span>{story.readTime}</span></div></div></header><div className={`edition-composer-grid cols-${story.columns}`} style={{gridTemplateColumns:`repeat(${story.columns},minmax(0,1fr))`}}>{visibleBlocks.map((block)=>renderBlock(block,story.columns))}</div></article>;
       })}
 
       <footer className="edition-footer"><div className="edition-brand">{cover.masthead}</div><p>CREATE · PUBLISH · DIGITIZE · GROW</p><span>LexoGraphix Plus</span></footer>
