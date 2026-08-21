@@ -1,5 +1,6 @@
 export type IssueStatus = "draft" | "review" | "published";
 export type PublicationVisibility = "public" | "unlisted" | "private";
+export type ArticleWorkflowStatus = "draft" | "editing" | "review" | "approved";
 export type PageKind = "cover" | "toc" | "article";
 export type BlockType =
   | "headline"
@@ -139,6 +140,10 @@ export type IssuePage = {
   order: number;
 };
 
+export type EditorialWorkflowSettings = {
+  articleStatuses?: Record<string, ArticleWorkflowStatus>;
+};
+
 export type ProductionSettings = {
   pageSize: "A4" | "A5" | "US Letter" | "Square 210" | "Custom";
   orientation: "portrait" | "landscape";
@@ -146,6 +151,7 @@ export type ProductionSettings = {
   safeMargin: number;
   gutter: number;
   baseline: number;
+  editorialWorkflow?: EditorialWorkflowSettings;
 };
 
 export type Issue = {
@@ -217,6 +223,7 @@ export const defaultProductionSettings: ProductionSettings = {
   safeMargin: 12,
   gutter: 6,
   baseline: 12,
+  editorialWorkflow: { articleStatuses: {} },
 };
 
 export const defaultImagePlacement: ImagePlacement = {
