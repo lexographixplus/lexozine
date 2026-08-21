@@ -31,17 +31,27 @@ import { blocksFromPlainText, blocksFromStructuredHtml, mammothStyleMap } from "
 
 type EditorMode = "content" | "design";
 type TextBlockType = Exclude<BlockType, "image">;
+type TextBlockRole = TextBlockType | "subheading";
 
-const textBlockTypes: TextBlockType[] = ["headline", "deck", "subheading", "body", "pullquote", "sidebar", "caption"];
+const textBlockRoles: TextBlockRole[] = ["headline", "deck", "subheading", "body", "pullquote", "sidebar", "caption"];
 
 const blockLabels: Record<BlockType, string> = {
+  headline: "Headline",
+  deck: "Deck",
+  body: "Body text",
+  pullquote: "Pull quote",
+  sidebar: "Sidebar",
+  image: "Image",
+  caption: "Caption",
+};
+
+const roleLabels: Record<TextBlockRole, string> = {
   headline: "Headline",
   deck: "Deck",
   subheading: "Subheading",
   body: "Body text",
   pullquote: "Pull quote",
   sidebar: "Sidebar",
-  image: "Image",
   caption: "Caption",
 };
 
@@ -53,9 +63,20 @@ function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+function roleForBlock(block: StoryBlock): TextBlockRole | "image" {
+  if (block.type === "image") return "image";
+  if (block.type === "body" && block.layout?.textStyle === "subheading") return "subheading";
+  return block.type;
+}
+
+function labelForBlock(block: StoryBlock) {
+  const role = roleForBlock(block);
+  return role === "image" ? blockLabels.image : roleLabels[role];
+}
+
 function previewText(block: StoryBlock) {
   if (block.type === "image") return block.placement?.alt || block.caption || "Image block";
-  return plainText(block.content) || `Empty ${blockLabels[block.type].toLowerCase()}`;
+  return plainText(block.content) || `Empty ${labelForBlock(block).toLowerCase()}`;
 }
 
 function syncPrimaryHeadline(article: Article, title: string): Article {
@@ -90,7 +111,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
   const [issue, setIssue] = useState<Issue | null>(null);
   const [mode, setMode] = useState<EditorMode>("content");
   const [selectedBlockId, setSelectedBlockId] = useState("");
-  const [newBlockType, setNewBlockType] = useState<TextBlockType>("body");
+  const [newBlockRole, setNewBlockRole] = useState<TextBlockRole>("body");
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState("Loading…");
   const [dirty, setDirty] = useState(false);
@@ -177,18 +198,24 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
     replaceBlocks(nextBlocks);
   }
 
-  function changeSelectedType(nextType: TextBlockType) {
-    if (!article || !selectedBlock || selectedBlock.type === "image" || selectedBlock.type === nextType) return;
+  function changeSelectedRole(nextRole: TextBlockRole) {
+    if (!article || !selectedBlock || selectedBlock.type === "image") return;
+    if (roleForBlock(selectedBlock) === nextRole) return;
+
+    const nextType: TextBlockType = nextRole === "subheading" ? "body" : nextRole;
     const defaults = defaultLayoutSettings(nextType, article.columns);
     const nextLayout = {
       ...defaults,
       hidden: selectedBlock.layout?.hidden ?? defaults.hidden,
       locked: selectedBlock.layout?.locked ?? defaults.locked,
-      span: clampLayoutSpan(selectedBlock.layout?.span ?? defaults.span, article.columns),
+      span: nextRole === "subheading"
+        ? article.columns
+        : clampLayoutSpan(selectedBlock.layout?.span ?? defaults.span, article.columns),
+      textStyle: nextRole === "subheading" ? "subheading" as const : undefined,
     };
     const nextBlocks = blocks.map((block) => block.id === selectedBlock.id ? { ...block, type: nextType, layout: nextLayout } : block);
     const alreadyHasHeadline = blocks.some((block) => block.type === "headline" && block.id !== selectedBlock.id);
-    if (nextType === "headline" && !alreadyHasHeadline) {
+    if (nextRole === "headline" && !alreadyHasHeadline) {
       const title = plainText(selectedBlock.content) || article.title;
       updateArticle({ title, slug: slugify(title), blocks: nextBlocks });
       return;
@@ -201,15 +228,31 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
     stage(setArticleWorkflowStatus(issue, article.id, nextStatus));
   }
 
-  function addBlock(type: BlockType) {
+  function addTextBlock(role: TextBlockRole) {
     if (!article) return;
+    const type: TextBlockType = role === "subheading" ? "body" : role;
+    const defaults = defaultLayoutSettings(type, article.columns);
     const block: StoryBlock = {
       id: createId("block"),
       type,
-      content: type === "headline" ? "New headline" : type === "deck" ? "Add a supporting deck." : type === "subheading" ? "Add a section heading." : type === "pullquote" ? "Add a memorable pull quote." : type === "sidebar" ? "Add sidebar content." : type === "caption" ? "Image caption" : type === "image" ? "" : "Begin writing here.",
+      content: role === "headline" ? "New headline" : role === "deck" ? "Add a supporting deck." : role === "subheading" ? "Add a section heading." : role === "pullquote" ? "Add a memorable pull quote." : role === "sidebar" ? "Add sidebar content." : role === "caption" ? "Image caption" : "Begin writing here.",
       order: blocks.length,
-      layout: defaultLayoutSettings(type, article.columns),
-      placement: type === "image" ? { ...defaultImagePlacement } : undefined,
+      layout: role === "subheading" ? { ...defaults, textStyle: "subheading", span: article.columns } : defaults,
+    };
+    replaceBlocks([...blocks, block]);
+    setSelectedBlockId(block.id);
+    setMode("content");
+  }
+
+  function addImageBlock() {
+    if (!article) return;
+    const block: StoryBlock = {
+      id: createId("block"),
+      type: "image",
+      content: "",
+      order: blocks.length,
+      layout: defaultLayoutSettings("image", article.columns),
+      placement: { ...defaultImagePlacement },
     };
     replaceBlocks([...blocks, block]);
     setSelectedBlockId(block.id);
@@ -248,7 +291,9 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
       layout: {
         ...defaultLayoutSettings(block.type, columns),
         ...(block.layout ?? {}),
-        span: clampLayoutSpan(block.layout?.span ?? 1, columns),
+        span: block.layout?.textStyle === "subheading"
+          ? columns
+          : clampLayoutSpan(block.layout?.span ?? 1, columns),
       },
     }));
     updateArticle({ columns, blocks: nextBlocks });
@@ -287,7 +332,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
       if (importedTitle) updateArticle({ title: importedTitle, slug: slugify(importedTitle), blocks: nextBlocks });
       else updateArticle({ blocks: nextBlocks });
       setSelectedBlockId(imported[0].id);
-      const mappedTypes = Array.from(new Set(imported.map((block) => blockLabels[block.type]))).join(", ");
+      const mappedTypes = Array.from(new Set(imported.map((block) => labelForBlock(block)))).join(", ");
       setSaveState(`${imported.length} structured blocks imported (${mappedTypes}) — review, then save`);
     } catch {
       setSaveState("Import failed — article left unchanged");
@@ -319,14 +364,14 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
           <h1 className="article-editor-title">{article.title}</h1>
           <div className="mode-tabs"><button className={mode === "content" ? "active" : ""} onClick={() => setMode("content")}><FileText size={12}/> Content</button><button className={mode === "design" ? "active" : ""} onClick={() => setMode("design")}><LayoutTemplate size={12}/> Design</button></div>
           <div className="article-block-list">
-            {blocks.map((block) => <button key={block.id} onClick={() => { setSelectedBlockId(block.id); setMode("content"); }} className={`article-block-item ${selectedBlockId === block.id ? "active" : ""} ${block.layout?.hidden ? "hidden" : ""}`}><div className="article-block-meta"><strong>{blockLabels[block.type]}</strong><span>Edit</span></div><small>{previewText(block)}</small></button>)}
+            {blocks.map((block) => <button key={block.id} onClick={() => { setSelectedBlockId(block.id); setMode("content"); }} className={`article-block-item ${selectedBlockId === block.id ? "active" : ""} ${block.layout?.hidden ? "hidden" : ""}`}><div className="article-block-meta"><strong>{labelForBlock(block)}</strong><span>Edit</span></div><small>{previewText(block)}</small></button>)}
           </div>
           <div className="block-add-composer">
-            <select value={newBlockType} onChange={(event) => setNewBlockType(event.target.value as TextBlockType)} aria-label="Text block type">
-              {textBlockTypes.map((type) => <option key={type} value={type}>{blockLabels[type]}</option>)}
+            <select value={newBlockRole} onChange={(event) => setNewBlockRole(event.target.value as TextBlockRole)} aria-label="Text block type">
+              {textBlockRoles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}
             </select>
-            <button onClick={() => addBlock(newBlockType)}><Plus size={11}/> Add text block</button>
-            <button onClick={() => addBlock("image")}><Plus size={11}/> Image</button>
+            <button onClick={() => addTextBlock(newBlockRole)}><Plus size={11}/> Add text block</button>
+            <button onClick={addImageBlock}><Plus size={11}/> Image</button>
           </div>
         </aside>
 
@@ -342,7 +387,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
               <div className="editorial-field"><span>Category</span><input value={article.category} onChange={(event) => updateArticle({ category: event.target.value })}/></div>
               <div className="editorial-field"><span>Byline</span><input value={article.byline} onChange={(event) => updateArticle({ byline: event.target.value })}/></div>
               <div className="editorial-field"><span>Read time</span><input value={article.readTime} onChange={(event) => updateArticle({ readTime: event.target.value })}/></div>
-              {selectedBlock ? <div className="content-block-editor"><div className="block-editor-heading"><span className="editorial-panel-label">Selected {blockLabels[selectedBlock.type]}</span><span className="block-editor-id">Edit block</span></div>{selectedBlock.type === "image" ? <div className="editorial-field"><span>Image description / alt text</span><input value={selectedBlock.placement?.alt ?? ""} onChange={(event) => patchSelected({ placement: { ...(selectedBlock.placement ?? defaultImagePlacement), alt: event.target.value } })}/><span>Caption</span><input value={selectedBlock.placement?.caption ?? ""} onChange={(event) => patchSelected({ placement: { ...(selectedBlock.placement ?? defaultImagePlacement), caption: event.target.value } })}/><Link href={`/media?issue=${issue.id}`} className="editorial-button secondary"><ImageIcon size={14}/> Manage media</Link></div> : <><div className="editorial-field block-type-field"><span>Block type</span><select value={selectedBlock.type} onChange={(event) => changeSelectedType(event.target.value as TextBlockType)}>{textBlockTypes.map((type) => <option key={type} value={type}>{blockLabels[type]}</option>)}</select><small>Reclassify imported or existing text without losing its content.</small></div><RichTextEditor value={selectedBlock.content} onChange={(content) => patchSelected({ content })}/></>}</div> : null}
+              {selectedBlock ? <div className="content-block-editor"><div className="block-editor-heading"><span className="editorial-panel-label">Selected {labelForBlock(selectedBlock)}</span><span className="block-editor-id">Edit block</span></div>{selectedBlock.type === "image" ? <div className="editorial-field"><span>Image description / alt text</span><input value={selectedBlock.placement?.alt ?? ""} onChange={(event) => patchSelected({ placement: { ...(selectedBlock.placement ?? defaultImagePlacement), alt: event.target.value } })}/><span>Caption</span><input value={selectedBlock.placement?.caption ?? ""} onChange={(event) => patchSelected({ placement: { ...(selectedBlock.placement ?? defaultImagePlacement), caption: event.target.value } })}/><Link href={`/media?issue=${issue.id}`} className="editorial-button secondary"><ImageIcon size={14}/> Manage media</Link></div> : <><div className="editorial-field block-type-field"><span>Block type</span><select value={roleForBlock(selectedBlock)} onChange={(event) => changeSelectedRole(event.target.value as TextBlockRole)}>{textBlockRoles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select><small>Reclassify imported or existing text without losing its content.</small></div><RichTextEditor value={selectedBlock.content} onChange={(content) => patchSelected({ content })}/></>}</div> : null}
             </div>
           ) : (
             <div className="design-canvas-wrap">
@@ -352,7 +397,8 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
                   {blocks.filter((block) => !block.layout?.hidden).map((block) => {
                     const span = clampLayoutSpan(block.layout?.span ?? defaultLayoutSettings(block.type, article.columns).span, article.columns);
                     const selected = block.id === selectedBlockId;
-                    return <div key={block.id} onClick={() => setSelectedBlockId(block.id)} className={`design-block ${block.type} span-${span} ${selected ? "selected" : ""}`}>{block.type === "image" ? block.imageUrl ? <img src={block.imageUrl} alt={block.placement?.alt ?? ""}/> : <div className="design-image-placeholder"><ImageIcon size={24}/><span>Choose image from Media Library</span></div> : <div dangerouslySetInnerHTML={{ __html: block.content }}/>}</div>;
+                    const visualRole = roleForBlock(block);
+                    return <div key={block.id} onClick={() => setSelectedBlockId(block.id)} className={`design-block ${visualRole} span-${span} ${selected ? "selected" : ""}`}>{block.type === "image" ? block.imageUrl ? <img src={block.imageUrl} alt={block.placement?.alt ?? ""}/> : <div className="design-image-placeholder"><ImageIcon size={24}/><span>Choose image from Media Library</span></div> : <div dangerouslySetInnerHTML={{ __html: block.content }}/>}</div>;
                   })}
                 </div>
               </div>
@@ -366,7 +412,7 @@ export default function ArticleEditor({ issueId, articleId }: { issueId: string;
           <div className="editorial-field"><span>Article layout</span><select value={article.layout} onChange={(event) => updateArticle({ layout: event.target.value as Article["layout"] })}><option value="feature">Feature</option><option value="essay">Essay</option><option value="interview">Interview</option><option value="visual">Visual</option></select></div>
           <span className="editorial-panel-label">Columns</span><div className="span-buttons">{([1,2,3] as const).map((value) => <button key={value} className={article.columns === value ? "active" : ""} onClick={() => setColumns(value)}>{value}</button>)}</div>
 
-          {selectedBlock ? <><div style={{ height: 22 }}/><span className="editorial-panel-label">Selected block · {blockLabels[selectedBlock.type]}</span>{selectedBlock.type !== "image" ? <div className="editorial-field inspector-block-type"><span>Block type</span><select value={selectedBlock.type} onChange={(event) => changeSelectedType(event.target.value as TextBlockType)}>{textBlockTypes.map((type) => <option key={type} value={type}>{blockLabels[type]}</option>)}</select></div> : null}<div className="span-buttons">{([1,2,3] as const).filter((value) => value <= article.columns).map((value) => <button key={value} className={(selectedBlock.layout?.span ?? 1) === value ? "active" : ""} onClick={() => patchLayout({ span: value })}>Span {value}</button>)}</div><div className="block-control-grid"><button onClick={() => moveSelected(-1)}><ChevronUp size={12}/> Move up</button><button onClick={() => moveSelected(1)}><ChevronDown size={12}/> Move down</button><button onClick={() => patchLayout({ hidden: !selectedBlock.layout?.hidden })}>{selectedBlock.layout?.hidden ? <Eye size={12}/> : <EyeOff size={12}/>} {selectedBlock.layout?.hidden ? "Show" : "Hide"}</button><button onClick={() => patchLayout({ locked: !selectedBlock.layout?.locked })}>{selectedBlock.layout?.locked ? <Unlock size={12}/> : <Lock size={12}/>} {selectedBlock.layout?.locked ? "Unlock" : "Lock"}</button><button onClick={duplicateSelected}><Copy size={12}/> Duplicate</button><button className="danger" onClick={removeSelected}><Trash2 size={12}/> Remove</button></div></> : null}
+          {selectedBlock ? <><div style={{ height: 22 }}/><span className="editorial-panel-label">Selected block · {labelForBlock(selectedBlock)}</span>{selectedBlock.type !== "image" ? <div className="editorial-field inspector-block-type"><span>Block type</span><select value={roleForBlock(selectedBlock)} onChange={(event) => changeSelectedRole(event.target.value as TextBlockRole)}>{textBlockRoles.map((role) => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></div> : null}<div className="span-buttons">{([1,2,3] as const).filter((value) => value <= article.columns).map((value) => <button key={value} className={(selectedBlock.layout?.span ?? 1) === value ? "active" : ""} onClick={() => patchLayout({ span: value })}>Span {value}</button>)}</div><div className="block-control-grid"><button onClick={() => moveSelected(-1)}><ChevronUp size={12}/> Move up</button><button onClick={() => moveSelected(1)}><ChevronDown size={12}/> Move down</button><button onClick={() => patchLayout({ hidden: !selectedBlock.layout?.hidden })}>{selectedBlock.layout?.hidden ? <Eye size={12}/> : <EyeOff size={12}/>} {selectedBlock.layout?.hidden ? "Show" : "Hide"}</button><button onClick={() => patchLayout({ locked: !selectedBlock.layout?.locked })}>{selectedBlock.layout?.locked ? <Unlock size={12}/> : <Lock size={12}/>} {selectedBlock.layout?.locked ? "Unlock" : "Lock"}</button><button onClick={duplicateSelected}><Copy size={12}/> Duplicate</button><button className="danger" onClick={removeSelected}><Trash2 size={12}/> Remove</button></div></> : null}
 
           <div style={{ height: 22 }}/><button onClick={() => void saveAndGo(`/layouts?issue=${issue.id}&article=${article.id}`)} className="editorial-button secondary full-width"><LayoutTemplate size={14}/> Apply another layout</button>
           <div style={{ height: 8 }}/><Link href={`/issues/${issue.id}`} className="editorial-button secondary full-width"><CheckCircle2 size={14}/> Return to issue workflow</Link>
