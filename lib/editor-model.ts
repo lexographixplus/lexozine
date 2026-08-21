@@ -30,6 +30,12 @@ export type FrameGeometry = {
   locked: boolean;
 };
 
+export type LayoutBlockSettings = {
+  hidden: boolean;
+  span: 1 | 2 | 3;
+  locked: boolean;
+};
+
 export type ImagePlacement = {
   width: number;
   align: ImageAlign;
@@ -107,6 +113,7 @@ export type StoryBlock = {
   focalPoint?: { x: number; y: number };
   placement?: ImagePlacement;
   frame?: FrameGeometry;
+  layout?: LayoutBlockSettings;
 };
 
 export type Article = {
