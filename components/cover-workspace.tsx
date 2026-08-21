@@ -52,9 +52,11 @@ function luminance(color: string) {
 async function extractCoverPalette(url: string): Promise<IssuePalette> {
   const image = new Image();
   image.crossOrigin = "anonymous";
-  image.src = url;
-  if ("decode" in image) await image.decode();
-  else await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error("Unable to read cover image")); });
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("Unable to read cover image"));
+    image.src = url;
+  });
 
   const canvas = document.createElement("canvas");
   canvas.width = 72;
