@@ -24,8 +24,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "3:2",
     character: "Expressive",
     articleLayout: "feature",
-    order: ["headline", "deck", "image", "body", "pullquote", "sidebar", "caption"],
-    spans: { headline: 2, deck: 2, image: 2, body: 1, pullquote: 1, sidebar: 1, caption: 2 },
+    order: ["headline", "deck", "subheading", "image", "body", "pullquote", "sidebar", "caption"],
+    spans: { headline: 2, deck: 2, subheading: 2, image: 2, body: 1, pullquote: 1, sidebar: 1, caption: 2 },
   },
   {
     id: "classic-essay",
@@ -36,8 +36,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "4:3",
     character: "Literary",
     articleLayout: "essay",
-    order: ["headline", "deck", "body", "pullquote", "body", "image", "caption", "sidebar"],
-    spans: { headline: 2, deck: 2, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["headline", "deck", "subheading", "body", "pullquote", "body", "image", "caption", "sidebar"],
+    spans: { headline: 2, deck: 2, subheading: 2, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
   {
     id: "poetry-page",
@@ -48,8 +48,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "Optional",
     character: "Literary",
     articleLayout: "essay",
-    order: ["headline", "deck", "body", "pullquote", "caption", "image", "sidebar"],
-    spans: { headline: 1, deck: 1, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["headline", "deck", "subheading", "body", "pullquote", "caption", "image", "sidebar"],
+    spans: { headline: 1, deck: 1, subheading: 1, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
   {
     id: "interview",
@@ -60,8 +60,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "4:5",
     character: "Conversational",
     articleLayout: "interview",
-    order: ["headline", "deck", "image", "body", "pullquote", "body", "sidebar", "caption"],
-    spans: { headline: 2, deck: 2, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["headline", "deck", "subheading", "image", "body", "pullquote", "body", "sidebar", "caption"],
+    spans: { headline: 2, deck: 2, subheading: 2, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
   {
     id: "minimal-profile",
@@ -72,8 +72,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "2:3",
     character: "Personal",
     articleLayout: "feature",
-    order: ["image", "headline", "deck", "body", "pullquote", "caption", "sidebar"],
-    spans: { headline: 2, deck: 2, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["image", "headline", "deck", "subheading", "body", "pullquote", "caption", "sidebar"],
+    spans: { headline: 2, deck: 2, subheading: 2, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
   {
     id: "photo-story",
@@ -84,8 +84,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "Flexible",
     character: "Visual",
     articleLayout: "visual",
-    order: ["headline", "deck", "image", "caption", "image", "caption", "body", "pullquote", "sidebar"],
-    spans: { headline: 1, deck: 1, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["headline", "deck", "subheading", "image", "caption", "image", "caption", "body", "pullquote", "sidebar"],
+    spans: { headline: 1, deck: 1, subheading: 1, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
   {
     id: "editors-note",
@@ -96,8 +96,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "4:5",
     character: "Reflective",
     articleLayout: "essay",
-    order: ["headline", "deck", "image", "body", "pullquote", "caption", "sidebar"],
-    spans: { headline: 1, deck: 1, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["headline", "deck", "subheading", "image", "body", "pullquote", "caption", "sidebar"],
+    spans: { headline: 1, deck: 1, subheading: 1, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
   {
     id: "visual-report",
@@ -108,8 +108,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "1:1",
     character: "Visual",
     articleLayout: "visual",
-    order: ["headline", "deck", "image", "image", "caption", "body", "pullquote", "sidebar"],
-    spans: { headline: 3, deck: 2, image: 2, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["headline", "deck", "subheading", "image", "image", "caption", "body", "pullquote", "sidebar"],
+    spans: { headline: 3, deck: 2, subheading: 3, image: 2, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
   {
     id: "dispatch",
@@ -120,8 +120,8 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "16:9",
     character: "Structured",
     articleLayout: "essay",
-    order: ["headline", "deck", "body", "sidebar", "image", "body", "pullquote", "caption"],
-    spans: { headline: 3, deck: 2, image: 2, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["headline", "deck", "subheading", "body", "sidebar", "image", "body", "pullquote", "caption"],
+    spans: { headline: 3, deck: 2, subheading: 3, image: 2, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
   {
     id: "sponsor-page",
@@ -132,14 +132,14 @@ export const layoutPresets: LayoutPresetDefinition[] = [
     imageRatio: "Full page",
     character: "Promotional",
     articleLayout: "visual",
-    order: ["image", "headline", "deck", "body", "caption", "sidebar", "pullquote"],
-    spans: { headline: 1, deck: 1, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
+    order: ["image", "headline", "deck", "subheading", "body", "caption", "sidebar", "pullquote"],
+    spans: { headline: 1, deck: 1, subheading: 1, image: 1, body: 1, pullquote: 1, sidebar: 1, caption: 1 },
   },
 ];
 
 export function defaultLayoutSettings(type: BlockType, columns: 1 | 2 | 3): LayoutBlockSettings {
   const full = columns;
-  if (type === "headline" || type === "deck") return { hidden: false, span: full, locked: false };
+  if (type === "headline" || type === "deck" || type === "subheading") return { hidden: false, span: full, locked: false };
   if (type === "image") return { hidden: false, span: Math.min(2, columns) as 1 | 2 | 3, locked: false };
   return { hidden: false, span: 1, locked: false };
 }
