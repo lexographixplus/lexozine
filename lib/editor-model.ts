@@ -5,6 +5,7 @@ export type PageKind = "cover" | "toc" | "article";
 export type BlockType =
   | "headline"
   | "deck"
+  | "subheading"
   | "body"
   | "pullquote"
   | "sidebar"
@@ -239,6 +240,7 @@ export const defaultImagePlacement: ImagePlacement = {
 export function defaultFrameFor(type: BlockType, order = 0): FrameGeometry {
   if (type === "headline") return { x: 8, y: 8, width: 84, height: 18, rotation: 0, zIndex: 20 + order, locked: false };
   if (type === "deck") return { x: 8, y: 28, width: 58, height: 10, rotation: 0, zIndex: 20 + order, locked: false };
+  if (type === "subheading") return { x: 8, y: 38, width: 58, height: 8, rotation: 0, zIndex: 20 + order, locked: false };
   if (type === "image") return { x: 8, y: 41, width: 48, height: 38, rotation: 0, zIndex: 10 + order, locked: false };
   if (type === "pullquote") return { x: 60, y: 43, width: 32, height: 20, rotation: 0, zIndex: 30 + order, locked: false };
   return { x: order % 2 ? 52 : 8, y: 42 + Math.floor(order / 2) * 23, width: 40, height: 20, rotation: 0, zIndex: 15 + order, locked: false };
