@@ -2,6 +2,8 @@ import type { Issue } from "./editor-model";
 
 export const ISSUE_CACHE_KEY = "lexozine-issues-v1";
 
+export type IssueSyncState = "synced" | "local";
+
 export interface IssueStore {
   list(): Promise<Issue[]>;
   get(id: string): Promise<Issue | null>;
@@ -63,13 +65,23 @@ export class RemoteIssueStore implements IssueStore {
 export class HybridIssueStore implements IssueStore {
   browser = new BrowserIssueStore();
   remote = new RemoteIssueStore();
+  lastSyncState: IssueSyncState = "synced";
+  lastSyncError = "";
+
+  getSyncState() {
+    return { state: this.lastSyncState, error: this.lastSyncError };
+  }
 
   async list() {
     try {
       const issues = await this.remote.list();
       this.browser.writeAll(issues);
+      this.lastSyncState = "synced";
+      this.lastSyncError = "";
       return issues;
-    } catch {
+    } catch (error) {
+      this.lastSyncState = "local";
+      this.lastSyncError = error instanceof Error ? error.message : "Cloud sync unavailable";
       return this.browser.list();
     }
   }
@@ -77,8 +89,12 @@ export class HybridIssueStore implements IssueStore {
     try {
       const issue = await this.remote.get(id);
       if (issue) await this.cache(issue);
+      this.lastSyncState = "synced";
+      this.lastSyncError = "";
       return issue;
-    } catch {
+    } catch (error) {
+      this.lastSyncState = "local";
+      this.lastSyncError = error instanceof Error ? error.message : "Cloud sync unavailable";
       return this.browser.get(id);
     }
   }
@@ -87,14 +103,25 @@ export class HybridIssueStore implements IssueStore {
     try {
       const saved = await this.remote.save(cached);
       await this.replaceCachedId(cached.id, saved);
+      this.lastSyncState = "synced";
+      this.lastSyncError = "";
       return saved;
-    } catch {
+    } catch (error) {
+      this.lastSyncState = "local";
+      this.lastSyncError = error instanceof Error ? error.message : "Cloud sync unavailable";
       return cached;
     }
   }
   async remove(id: string) {
     await this.browser.remove(id);
-    try { await this.remote.remove(id); } catch { /* keep local deletion; bridge retries later */ }
+    try {
+      await this.remote.remove(id);
+      this.lastSyncState = "synced";
+      this.lastSyncError = "";
+    } catch (error) {
+      this.lastSyncState = "local";
+      this.lastSyncError = error instanceof Error ? error.message : "Cloud sync unavailable";
+    }
   }
   private async cache(issue: Issue) {
     const all = this.browser.readAll();
