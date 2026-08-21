@@ -61,4 +61,4 @@ npm run check
 npm run build
 ```
 
-All active development is currently isolated on `feature/lexozine-studio-foundation` until review and merge approval.
+Current Release 0.6 refinement work is isolated on `refinement/0.6` until review and merge approval.
