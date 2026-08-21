@@ -5,6 +5,11 @@ import { defaultLayoutSettings } from "./layout-composer";
 const inlineAllowed = new Set(["B", "STRONG", "I", "EM", "U", "S", "BR", "SPAN", "SUP", "SUB", "A"]);
 const bodyAllowed = new Set([...inlineAllowed, "P", "UL", "OL", "LI"]);
 
+type MappedElement = {
+  type: BlockType;
+  textStyle?: "subheading";
+};
+
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -37,24 +42,28 @@ function mappedContent(element: Element, type: BlockType) {
   return innerContent(element, type === "body");
 }
 
-function makeBlock(type: BlockType, content: string, order: number, columns: 1 | 2 | 3): StoryBlock {
+function makeBlock(mapped: MappedElement, content: string, order: number, columns: 1 | 2 | 3): StoryBlock {
+  const defaults = defaultLayoutSettings(mapped.type, columns);
   return {
     id: createId("block"),
-    type,
+    type: mapped.type,
     content,
     order,
-    layout: defaultLayoutSettings(type, columns),
+    layout: {
+      ...defaults,
+      ...(mapped.textStyle ? { textStyle: mapped.textStyle, span: columns } : {}),
+    },
   };
 }
 
-function normalizedElementType(element: Element, headlineSeen: boolean): BlockType | null {
+function normalizedElementType(element: Element, headlineSeen: boolean): MappedElement | null {
   const tag = element.tagName.toLowerCase();
-  if (tag === "h1") return headlineSeen ? "subheading" : "headline";
-  if (/^h[2-6]$/.test(tag)) return "subheading";
-  if (tag === "blockquote") return "pullquote";
-  if (tag === "figcaption") return "caption";
-  if (element.classList.contains("lexo-deck") || element.classList.contains("subtitle")) return "deck";
-  if (tag === "p" || tag === "ul" || tag === "ol" || tag === "pre") return "body";
+  if (tag === "h1") return headlineSeen ? { type: "body", textStyle: "subheading" } : { type: "headline" };
+  if (/^h[2-6]$/.test(tag)) return { type: "body", textStyle: "subheading" };
+  if (tag === "blockquote") return { type: "pullquote" };
+  if (tag === "figcaption") return { type: "caption" };
+  if (element.classList.contains("lexo-deck") || element.classList.contains("subtitle")) return { type: "deck" };
+  if (tag === "p" || tag === "ul" || tag === "ol" || tag === "pre") return { type: "body" };
   return null;
 }
 
@@ -65,12 +74,12 @@ export function blocksFromStructuredHtml(html: string, columns: 1 | 2 | 3): Stor
   let headlineSeen = false;
 
   for (const element of Array.from(doc.body.children)) {
-    const type = normalizedElementType(element, headlineSeen);
-    if (!type) continue;
-    const content = mappedContent(element, type);
+    const mapped = normalizedElementType(element, headlineSeen);
+    if (!mapped) continue;
+    const content = mappedContent(element, mapped.type);
     if (!content || !content.replace(/<[^>]+>/g, "").trim()) continue;
-    blocks.push(makeBlock(type, content, blocks.length, columns));
-    if (type === "headline") headlineSeen = true;
+    blocks.push(makeBlock(mapped, content, blocks.length, columns));
+    if (mapped.type === "headline") headlineSeen = true;
   }
 
   return blocks;
@@ -91,7 +100,7 @@ export function blocksFromPlainText(text: string, columns: 1 | 2 | 3): StoryBloc
         : content.length < 100 && index > 2
           ? "pullquote"
           : "body";
-    return makeBlock(type, escapeHtml(content).replace(/\n/g, "<br>"), index, columns);
+    return makeBlock({ type }, escapeHtml(content).replace(/\n/g, "<br>"), index, columns);
   });
 }
 
