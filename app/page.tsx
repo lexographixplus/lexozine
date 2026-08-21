@@ -39,7 +39,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ i
             <span>Digital publishing by LexoGraphix Plus</span>
           </div>
         </Link>
-        <Link href="/studio" className="public-library-studio-link">Studio sign in</Link>
+        <a href="https://www.lexographixplus.com/start" className="public-library-studio-link">Get Started</a>
       </nav>
 
       <section className="public-library-hero">
@@ -93,7 +93,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ i
               <h3>The first shelf is being prepared.</h3>
               <p>Published public editions will appear here automatically when they go live from LexoStudio.</p>
             </div>
-            <Link href="/studio">Enter Studio</Link>
           </div>
         )}
       </section>
