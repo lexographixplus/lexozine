@@ -193,7 +193,7 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
       </section>
 
       <footer className="issue-workspace-footer">
-        <Link href={`/studio?issue=${issue.id}`}><Settings2 size={14}/> Legacy full-spread Studio</Link>
+        <Link href={`/studio?legacy=1&issue=${issue.id}`}><Settings2 size={14}/> Legacy full-spread Studio</Link>
         <span>Release 0.6 editorial workflow · LexoStudio</span>
       </footer>
     </main>
