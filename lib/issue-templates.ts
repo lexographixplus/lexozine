@@ -29,6 +29,28 @@ function article(title: string, layout: Article["layout"], theme: Article["theme
   };
 }
 
+export function createBlankIssue(): Issue {
+  const now = new Date().toISOString();
+  return {
+    id: createId("issue"),
+    title: "Untitled Issue",
+    number: "01",
+    editionDate: new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date()),
+    status: "draft",
+    visibility: "private",
+    description: "",
+    theme: "editorial",
+    coverLines: [],
+    palette: defaultPaletteForTheme("editorial"),
+    pages: [],
+    articles: [],
+    production: { ...defaultProductionSettings },
+    typography: { ...defaultTypographySettings },
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = "editorial"): Issue {
   const now = new Date().toISOString();
   const theme = kind === "culture" ? "cultural" : kind === "minimal" ? "minimal" : "editorial";
