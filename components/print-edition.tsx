@@ -23,7 +23,8 @@ function Frame({ block }: { block: StoryBlock }) {
     const placement = block.placement ?? defaultImagePlacement;
     return <figure className="print-frame print-image" style={style}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={block.imageUrl} alt={placement.alt} style={{objectFit:placement.fit,objectPosition:`${placement.focalX}% ${placement.focalY}%`}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</figure>;
   }
-  return <div className={`print-frame print-${block.type}`} style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+  const presentation = block.type === "body" && block.layout?.textStyle === "subheading" ? "subheading" : block.type;
+  return <div className={`print-frame print-${presentation}`} style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
 }
 
 function ComposedBlock({ block, columns }: { block: StoryBlock; columns: 1 | 2 | 3 }) {
@@ -35,7 +36,7 @@ function ComposedBlock({ block, columns }: { block: StoryBlock; columns: 1 | 2 |
   if (block.type === "image") return <figure className="print-composer-block print-composer-image" style={style}>{block.imageUrl ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={block.imageUrl} alt={placement.alt} style={{objectFit:placement.fit,objectPosition:`${placement.focalX}% ${placement.focalY}%`}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</> : null}</figure>;
   if (block.type === "headline") return <div className="print-composer-block print-composer-headline" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
   if (block.type === "deck") return <div className="print-composer-block print-composer-deck" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
-  if (block.type === "subheading") return <div className="print-composer-block print-composer-subheading" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+  if (block.type === "body" && block.layout?.textStyle === "subheading") return <div className="print-composer-block print-composer-subheading" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
   if (block.type === "pullquote") return <blockquote className="print-composer-block print-composer-quote" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
   if (block.type === "sidebar") return <aside className="print-composer-block print-composer-sidebar" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
   if (block.type === "caption") return <div className="print-composer-block print-composer-caption" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
