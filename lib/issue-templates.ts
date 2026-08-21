@@ -50,6 +50,7 @@ export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = 
     number: "01",
     editionDate: new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date()),
     status: "draft",
+    visibility: "private",
     description: "A modern editorial issue created in Lexozine Studio.",
     theme,
     coverLines,
