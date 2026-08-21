@@ -8,6 +8,10 @@ import { Issue, StoryBlock, defaultImagePlacement } from "@/lib/editor-model";
 import { defaultLayoutSettings } from "@/lib/layout-composer";
 import { resolveActiveCoverAsset, resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
 
+function classSlug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
 export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue }) {
   const [issue] = useState<Issue>(() => initialIssue ?? createIssueTemplate("editorial"));
   const [navOpen, setNavOpen] = useState(false);
@@ -68,7 +72,8 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
 
       {stories.map((story, index) => {
         const visibleBlocks = [...story.blocks].sort((a,b)=>a.order-b.order).filter((block)=>!block.layout?.hidden);
-        return <article id={`story-${index + 1}`} key={story.id} className={`edition-story story-layout-${story.layout} edition-composed-story`}><header className="edition-story-head edition-composed-head"><div className="edition-story-index">{String(index+1).padStart(2,"0")}</div><div><span className="edition-story-category">{story.category}</span><div className="edition-byline"><span>{story.byline}</span><span>{story.readTime}</span></div></div></header><div className={`edition-composer-grid cols-${story.columns}`} style={{gridTemplateColumns:`repeat(${story.columns},minmax(0,1fr))`}}>{visibleBlocks.map((block)=>renderBlock(block,story.columns))}</div></article>;
+        const presetClass = `story-category-${classSlug(story.category)}`;
+        return <article id={`story-${index + 1}`} key={story.id} className={`edition-story story-layout-${story.layout} ${presetClass} edition-composed-story`}><header className="edition-story-head edition-composed-head"><div className="edition-story-index">{String(index+1).padStart(2,"0")}</div><div><span className="edition-story-category">{story.category}</span><div className="edition-byline"><span>{story.byline}</span><span>{story.readTime}</span></div></div></header><div className={`edition-composer-grid cols-${story.columns}`} style={{gridTemplateColumns:`repeat(${story.columns},minmax(0,1fr))`}}>{visibleBlocks.map((block)=>renderBlock(block,story.columns))}</div></article>;
       })}
 
       <footer className="edition-footer"><div className="edition-brand">{cover.masthead}</div><p>CREATE · PUBLISH · DIGITIZE · GROW</p><span>LexoGraphix Plus</span></footer>
