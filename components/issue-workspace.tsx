@@ -11,6 +11,7 @@ import {
   ImageIcon,
   LayoutTemplate,
   MonitorUp,
+  Pencil,
   Plus,
   Settings2,
 } from "lucide-react";
@@ -19,16 +20,17 @@ import { useEffect, useMemo, useState } from "react";
 import type { Article, ArticleWorkflowStatus, Issue, IssuePage } from "@/lib/editor-model";
 import { createId } from "@/lib/editor-model";
 import { articleReadiness, articleWorkflowLabels, getArticleWorkflowStatus, setArticleWorkflowStatus } from "@/lib/editorial-workflow";
+import { applyLayoutPreset, layoutPresets } from "@/lib/layout-composer";
 import { issueStore } from "@/lib/issue-store";
 
-function createArticle(title = "Untitled Story", issue?: Issue): Article {
+function createArticle(title: string, issue?: Issue): Article {
   const now = new Date().toISOString();
   const theme = issue?.theme ?? "editorial";
   return {
     id: createId("article"),
     title,
     slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-    category: "Feature / Editorial",
+    category: "Feature",
     byline: "Lexozine Editorial",
     readTime: "6 min read",
     layout: "feature",
@@ -48,13 +50,22 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
   const [issue, setIssue] = useState<Issue | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [showArticleCreator, setShowArticleCreator] = useState(false);
+  const [articleTitle, setArticleTitle] = useState("");
+  const [articlePresetId, setArticlePresetId] = useState("feature-opener");
+  const [articleCreateError, setArticleCreateError] = useState("");
+  const [editingIssueName, setEditingIssueName] = useState(false);
+  const [issueNameDraft, setIssueNameDraft] = useState("");
 
   useEffect(() => {
     let alive = true;
     async function load() {
       try {
         const found = await issueStore?.get(issueId) ?? null;
-        if (alive) setIssue(found);
+        if (alive) {
+          setIssue(found);
+          setIssueNameDraft(found?.title ?? "");
+        }
       } finally {
         if (alive) setLoading(false);
       }
@@ -64,6 +75,7 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
   }, [issueId]);
 
   const readiness = useMemo(() => issue ? articleReadiness(issue) : null, [issue]);
+  const selectedPreset = useMemo(() => layoutPresets.find((preset) => preset.id === articlePresetId) ?? layoutPresets[0], [articlePresetId]);
   const orderedArticles = useMemo(() => {
     if (!issue) return [];
     const pageOrder = new Map(issue.pages.filter((page) => page.articleId).map((page) => [page.articleId!, page.order]));
@@ -71,10 +83,22 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
   }, [issue]);
 
   async function persist(next: Issue, note?: string) {
-    const saved = await issueStore?.save(next) ?? next;
+    const saved = await issueStore?.save({ ...next, updatedAt: new Date().toISOString() }) ?? next;
     setIssue(saved);
     if (note) setMessage(note);
     return saved;
+  }
+
+  async function saveIssueName() {
+    if (!issue) return;
+    const title = issueNameDraft.trim();
+    if (!title) {
+      setMessage("Issue name cannot be empty.");
+      return;
+    }
+    const saved = await persist({ ...issue, title }, "Issue name updated");
+    setIssueNameDraft(saved.title);
+    setEditingIssueName(false);
   }
 
   async function changeStatus(articleId: string, status: ArticleWorkflowStatus) {
@@ -98,12 +122,17 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
         ? { ...existing, order: baseOrder + order }
         : { id: createId("page"), label: article.title, kind: "article", articleId: article.id, order: baseOrder + order };
     });
-    await persist({ ...issue, articles, pages: [...nonArticlePages, ...articlePages], updatedAt: new Date().toISOString() }, "Article order updated");
+    await persist({ ...issue, articles, pages: [...nonArticlePages, ...articlePages] }, "Article order updated");
   }
 
   async function addArticle() {
     if (!issue) return;
-    const article = createArticle("Untitled Story", issue);
+    const title = articleTitle.trim();
+    if (!title) {
+      setArticleCreateError("Give the article a title before creating it.");
+      return;
+    }
+    const article = applyLayoutPreset(createArticle(title, issue), selectedPreset.id);
     const page: IssuePage = {
       id: createId("page"),
       label: article.title,
@@ -112,7 +141,10 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
       order: issue.pages.length,
     };
     const next = setArticleWorkflowStatus({ ...issue, articles: [...issue.articles, article], pages: [...issue.pages, page] }, article.id, "draft");
-    const saved = await persist(next, "New article added");
+    const saved = await persist(next, `${selectedPreset.name} article added`);
+    setArticleTitle("");
+    setArticleCreateError("");
+    setShowArticleCreator(false);
     window.location.href = `/issues/${encodeURIComponent(saved.id)}/articles/${encodeURIComponent(article.id)}`;
   }
 
@@ -135,7 +167,8 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
       <section className="issue-workspace-hero">
         <div>
           <span className="editorial-eyebrow">Issue {issue.number} · {issue.editionDate}</span>
-          <h1>{issue.title}</h1>
+          <div className="issue-title-row"><h1>{issue.title}</h1><button className="issue-title-edit" onClick={() => { setIssueNameDraft(issue.title); setEditingIssueName((value) => !value); }}><Pencil size={13}/> Rename</button></div>
+          {editingIssueName ? <div className="issue-rename-panel"><input value={issueNameDraft} onChange={(event) => setIssueNameDraft(event.target.value)} aria-label="Issue name"/><button onClick={() => void saveIssueName()}>Save name</button><button className="secondary" onClick={() => { setIssueNameDraft(issue.title); setEditingIssueName(false); }}>Cancel</button></div> : null}
           <p>{issue.description}</p>
           {message ? <div className="editorial-message">{message}</div> : null}
         </div>
@@ -158,9 +191,19 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
 
       <section className="issue-articles-section">
         <div className="issue-section-heading">
-          <div><span className="editorial-eyebrow">Editorial sequence</span><h2>Articles & pages</h2><p>Open an article to edit its content, then switch to Design mode to shape the page composition.</p></div>
-          <button onClick={() => void addArticle()} className="editorial-button"><Plus size={15}/> Add article</button>
+          <div><span className="editorial-eyebrow">Editorial sequence</span><h2>Articles & pages</h2><p>Create the article with the right editorial preset, then edit both its content and composition freely.</p></div>
+          <button onClick={() => { setShowArticleCreator((value) => !value); setArticleCreateError(""); }} className="editorial-button"><Plus size={15}/> {showArticleCreator ? "Close creator" : "Add article"}</button>
         </div>
+
+        {showArticleCreator ? <section className="article-create-panel">
+          <div className="article-create-copy"><span className="editorial-eyebrow">New article</span><h3>Name the entry and choose its starting format</h3><p>Article presets set the first-pass structure and typography. You can customise every block afterward in the editor.</p></div>
+          <label className="article-create-title"><span>Article title</span><input autoFocus value={articleTitle} onChange={(event) => { setArticleTitle(event.target.value); setArticleCreateError(""); }} placeholder="e.g. The Road Home"/></label>
+          <div className="article-type-heading"><span>Article type</span><small>Poetry is a single-column literary preset with preserved line rhythm and generous spacing.</small></div>
+          <div className="article-type-grid">{layoutPresets.map((preset) => <button key={preset.id} className={`article-type-option ${articlePresetId === preset.id ? "active" : ""} ${preset.category === "Poetry" ? "poetry" : ""}`} onClick={() => setArticlePresetId(preset.id)}><strong>{preset.category}</strong><span>{preset.name}</span></button>)}</div>
+          <div className="article-preset-summary"><LayoutTemplate size={16}/><div><strong>{selectedPreset.name}</strong><span>{selectedPreset.description}</span><small>{selectedPreset.columns} column{selectedPreset.columns > 1 ? "s" : ""} · {selectedPreset.character} · image {selectedPreset.imageRatio}</small></div></div>
+          {articleCreateError ? <div className="article-create-error">{articleCreateError}</div> : null}
+          <div className="article-create-actions"><button className="editorial-button secondary" onClick={() => { setShowArticleCreator(false); setArticleCreateError(""); }}>Cancel</button><button className="editorial-button save-action" onClick={() => void addArticle()}>Create & open editor <ArrowRight size={14}/></button></div>
+        </section> : null}
 
         <div className="article-workflow-list">
           {orderedArticles.map((article, index) => {
@@ -170,7 +213,7 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
               <article className="article-workflow-row" key={article.id}>
                 <div className="article-order">{String(index + 1).padStart(2, "0")}</div>
                 <div className="article-workflow-copy">
-                  <div className="article-workflow-meta"><span>{article.category}</span><span>{article.layout} · {article.columns} col</span>{missingImage ? <span className="needs-media">Needs image</span> : null}</div>
+                  <div className="article-workflow-meta"><span>{article.category}</span><span>{article.layout} · {article.columns} col</span>{missingImage && article.category !== "Poetry" ? <span className="needs-media">Needs image</span> : null}</div>
                   <h3>{article.title}</h3>
                   <small>{article.byline} · {article.readTime}</small>
                 </div>
@@ -184,7 +227,7 @@ export default function IssueWorkspace({ issueId }: { issueId: string }) {
                   <button onClick={() => void moveArticle(article.id, -1)} disabled={index === 0} aria-label="Move article up"><ChevronUp size={14}/></button>
                   <button onClick={() => void moveArticle(article.id, 1)} disabled={index === orderedArticles.length - 1} aria-label="Move article down"><ChevronDown size={14}/></button>
                 </div>
-                <Link href={`/layouts?issue=${issue.id}&article=${article.id}`} className="article-row-icon" title="Assign layout"><LayoutTemplate size={16}/></Link>
+                <Link href={`/layouts?issue=${issue.id}&article=${article.id}`} className="article-row-icon" title="Change article preset or layout"><LayoutTemplate size={16}/></Link>
                 <Link href={`/issues/${issue.id}/articles/${article.id}`} className="article-open-button">Open article <ArrowRight size={14}/></Link>
               </article>
             );
