@@ -1,9 +1,11 @@
 import type { CSSProperties } from "react";
 import type { Issue, StoryBlock } from "@/lib/editor-model";
 import { defaultFrameFor, defaultImagePlacement, themeTokens } from "@/lib/editor-model";
+import { defaultLayoutSettings } from "@/lib/layout-composer";
 import { resolveActiveCoverAsset, resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
 
 function Frame({ block }: { block: StoryBlock }) {
+  if (block.layout?.hidden) return null;
   const frame = block.frame ?? defaultFrameFor(block.type, block.order);
   const style: CSSProperties = {
     left: `${frame.x}%`,
@@ -18,6 +20,21 @@ function Frame({ block }: { block: StoryBlock }) {
     return <figure className="print-frame print-image" style={style}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={block.imageUrl} alt={placement.alt} style={{objectFit:placement.fit,objectPosition:`${placement.focalX}% ${placement.focalY}%`}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</figure>;
   }
   return <div className={`print-frame print-${block.type}`} style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+}
+
+function ComposedBlock({ block, columns }: { block: StoryBlock; columns: 1 | 2 | 3 }) {
+  const settings = { ...defaultLayoutSettings(block.type, columns), ...(block.layout ?? {}) };
+  if (settings.hidden) return null;
+  const span = Math.max(1, Math.min(columns, settings.span));
+  const style: CSSProperties = { gridColumn: `span ${span}` };
+  const placement = block.placement ?? defaultImagePlacement;
+  if (block.type === "image") return <figure className="print-composer-block print-composer-image" style={style}>{block.imageUrl ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={block.imageUrl} alt={placement.alt} style={{objectFit:placement.fit,objectPosition:`${placement.focalX}% ${placement.focalY}%`}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</> : null}</figure>;
+  if (block.type === "headline") return <div className="print-composer-block print-composer-headline" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+  if (block.type === "deck") return <div className="print-composer-block print-composer-deck" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+  if (block.type === "pullquote") return <blockquote className="print-composer-block print-composer-quote" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+  if (block.type === "sidebar") return <aside className="print-composer-block print-composer-sidebar" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+  if (block.type === "caption") return <div className="print-composer-block print-composer-caption" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
+  return <div className="print-composer-block print-composer-body" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
 }
 
 export default function PrintEdition({ issue }: { issue: Issue }) {
@@ -48,9 +65,9 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
     {issue.articles.map((article,index)=>{
       const hasFrames=article.blocks.some((block)=>block.frame);
       const articleTheme=themeTokens[article.theme];
-      if(hasFrames) return <section key={article.id} className="print-page print-frame-page" style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div>{article.blocks.map((block)=><Frame key={block.id} block={block}/>)}</section>;
-      const headline=article.blocks.find((block)=>block.type==="headline"); const deck=article.blocks.find((block)=>block.type==="deck"); const body=article.blocks.filter((block)=>block.type==="body").sort((a,b)=>a.order-b.order); const quote=article.blocks.find((block)=>block.type==="pullquote"); const image=article.blocks.find((block)=>block.type==="image"&&block.imageUrl); const placement=image?.placement??defaultImagePlacement;
-      return <section key={article.id} className="print-page print-flow-page"><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div><header><span>{article.category}</span><h1 dangerouslySetInnerHTML={{__html:headline?.content??article.title}}/><div dangerouslySetInnerHTML={{__html:deck?.content??""}}/><small>{article.byline} · {article.readTime}</small></header>{image?.imageUrl?<figure className="print-flow-image">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={image.imageUrl} alt={placement.alt}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</figure>:null}<div className={`print-flow-copy cols-${article.columns}`}>{body.map((block)=><div key={block.id} dangerouslySetInnerHTML={{__html:block.content}}/>)}{quote?<blockquote dangerouslySetInnerHTML={{__html:quote.content}}/>:null}</div></section>;
+      const ordered=[...article.blocks].sort((a,b)=>a.order-b.order);
+      if(hasFrames) return <section key={article.id} className="print-page print-frame-page" style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div>{ordered.map((block)=><Frame key={block.id} block={block}/>)}</section>;
+      return <section key={article.id} className="print-page print-composed-page" style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div><div className="print-composed-meta"><span>{article.category}</span><strong>{article.byline} · {article.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${article.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={article.columns}/>)}</div></section>;
     })}
   </main>;
 }
