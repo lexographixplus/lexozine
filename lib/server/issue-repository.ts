@@ -94,6 +94,11 @@ export async function listIssues(): Promise<Issue[]> {
     coverImageUrl: row.cover_image_url ?? undefined,
     coverImagePublicId: row.cover_image_public_id ?? undefined,
     coverLines: row.cover_lines ?? [],
+    cover: row.cover && Object.keys(row.cover).length ? row.cover : undefined,
+    palette: row.palette && Object.keys(row.palette).length ? row.palette : undefined,
+    publicSlug: row.public_slug ?? undefined,
+    visibility: row.visibility ?? "private",
+    publishedAt: row.published_at ? new Date(row.published_at).toISOString() : undefined,
     production: row.production && Object.keys(row.production).length ? row.production : undefined,
     typography: row.typography && Object.keys(row.typography).length ? row.typography : undefined,
     pages: pageMap.get(row.id) ?? [],
@@ -108,15 +113,26 @@ export async function getIssue(id: string): Promise<Issue | null> {
   return issues.find((issue) => issue.id === id) ?? null;
 }
 
+export async function getPublicIssueBySlug(slug: string): Promise<Issue | null> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  const issues = await listIssues();
+  return issues.find((issue) =>
+    issue.status === "published" &&
+    issue.publicSlug?.toLowerCase() === normalized &&
+    (issue.visibility === "public" || issue.visibility === "unlisted")
+  ) ?? null;
+}
+
 export async function saveIssue(input: Issue, ownerUserId?: string): Promise<Issue> {
   const issue = normalizeIssueIds({ ...input, updatedAt: new Date().toISOString() });
   const sql = db();
   const queries: any[] = [];
 
   queries.push(sql`
-    insert into issues (id, owner_user_id, title, issue_number, edition_date, status, description, theme, cover_image_url, cover_image_public_id, cover_lines, production, typography, created_at, updated_at)
-    values (${issue.id}::uuid, ${ownerUserId ?? null}, ${issue.title}, ${issue.number}, ${issue.editionDate}, ${issue.status}::issue_status, ${issue.description}, ${issue.theme}, ${issue.coverImageUrl ?? null}, ${issue.coverImagePublicId ?? null}, ${JSON.stringify(issue.coverLines)}::jsonb, ${JSON.stringify(issue.production ?? {})}::jsonb, ${JSON.stringify(issue.typography ?? {})}::jsonb, ${issue.createdAt}::timestamptz, ${issue.updatedAt}::timestamptz)
-    on conflict (id) do update set owner_user_id=coalesce(issues.owner_user_id, excluded.owner_user_id), title=excluded.title, issue_number=excluded.issue_number, edition_date=excluded.edition_date, status=excluded.status, description=excluded.description, theme=excluded.theme, cover_image_url=excluded.cover_image_url, cover_image_public_id=excluded.cover_image_public_id, cover_lines=excluded.cover_lines, production=excluded.production, typography=excluded.typography, updated_at=excluded.updated_at
+    insert into issues (id, owner_user_id, title, issue_number, edition_date, status, description, theme, cover_image_url, cover_image_public_id, cover_lines, cover, palette, public_slug, visibility, published_at, production, typography, created_at, updated_at)
+    values (${issue.id}::uuid, ${ownerUserId ?? null}, ${issue.title}, ${issue.number}, ${issue.editionDate}, ${issue.status}::issue_status, ${issue.description}, ${issue.theme}, ${issue.coverImageUrl ?? null}, ${issue.coverImagePublicId ?? null}, ${JSON.stringify(issue.coverLines)}::jsonb, ${JSON.stringify(issue.cover ?? {})}::jsonb, ${JSON.stringify(issue.palette ?? {})}::jsonb, ${issue.publicSlug ?? null}, ${issue.visibility ?? "private"}, ${issue.publishedAt ?? null}::timestamptz, ${JSON.stringify(issue.production ?? {})}::jsonb, ${JSON.stringify(issue.typography ?? {})}::jsonb, ${issue.createdAt}::timestamptz, ${issue.updatedAt}::timestamptz)
+    on conflict (id) do update set owner_user_id=coalesce(issues.owner_user_id, excluded.owner_user_id), title=excluded.title, issue_number=excluded.issue_number, edition_date=excluded.edition_date, status=excluded.status, description=excluded.description, theme=excluded.theme, cover_image_url=excluded.cover_image_url, cover_image_public_id=excluded.cover_image_public_id, cover_lines=excluded.cover_lines, cover=excluded.cover, palette=excluded.palette, public_slug=excluded.public_slug, visibility=excluded.visibility, published_at=excluded.published_at, production=excluded.production, typography=excluded.typography, updated_at=excluded.updated_at
   `);
 
   queries.push(sql`delete from issue_pages where issue_id=${issue.id}::uuid`);
