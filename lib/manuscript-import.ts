@@ -30,6 +30,13 @@ function innerContent(element: Element, allowBodyTags = false) {
   return Array.from(element.childNodes).map((node) => sanitizeNode(node, allowBodyTags)).join("").trim();
 }
 
+function mappedContent(element: Element, type: BlockType) {
+  const tag = element.tagName.toLowerCase();
+  if (type === "body" && (tag === "ul" || tag === "ol")) return sanitizeNode(element, true).trim();
+  if (type === "body" && tag === "pre") return escapeHtml(element.textContent ?? "").replace(/\r?\n/g, "<br>").trim();
+  return innerContent(element, type === "body");
+}
+
 function makeBlock(type: BlockType, content: string, order: number, columns: 1 | 2 | 3): StoryBlock {
   return {
     id: createId("block"),
@@ -60,8 +67,7 @@ export function blocksFromStructuredHtml(html: string, columns: 1 | 2 | 3): Stor
   for (const element of Array.from(doc.body.children)) {
     const type = normalizedElementType(element, headlineSeen);
     if (!type) continue;
-    const allowBodyTags = type === "body";
-    const content = innerContent(element, allowBodyTags);
+    const content = mappedContent(element, type);
     if (!content || !content.replace(/<[^>]+>/g, "").trim()) continue;
     blocks.push(makeBlock(type, content, blocks.length, columns));
     if (type === "headline") headlineSeen = true;
