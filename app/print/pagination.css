@@ -1,4 +1,11 @@
-.print-composed-page{height:auto;min-height:297mm;overflow:visible;break-inside:auto;page-break-inside:auto}
+.print-composed-page{height:auto;min-height:297mm;overflow:visible;break-inside:auto;page-break-inside:auto;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:var(--print-paper)}
 .print-composer-body{break-inside:auto;page-break-inside:auto}
-.print-composer-body p,.print-composer-body ul,.print-composer-body ol{break-inside:auto;page-break-inside:auto}
-@media print{.print-composed-page{height:auto;min-height:297mm;overflow:visible}.print-composer-body{break-inside:auto;page-break-inside:auto}}
+.print-composer-body p,.print-composer-body ul,.print-composer-body ol{break-inside:auto;page-break-inside:auto;orphans:3;widows:3}
+.print-composer-subheading{break-after:avoid;page-break-after:avoid}
+@media print{
+  .print-composed-page{height:auto;min-height:297mm;overflow:visible;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:var(--print-paper);padding-top:18mm;padding-bottom:16mm}
+  .print-prose-long{padding-top:15mm;padding-bottom:15mm}
+  .print-category-serial-fiction.print-prose-long{padding-top:15mm;padding-bottom:15mm}
+  .print-composer-body{break-inside:auto;page-break-inside:auto}
+  .print-composer-body p,.print-composer-body ul,.print-composer-body ol{orphans:3;widows:3}
+}
