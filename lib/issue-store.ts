@@ -1,6 +1,7 @@
 import type { Issue } from "./editor-model";
 
 export const ISSUE_CACHE_KEY = "lexozine-issues-v2";
+const WRITE_GENERATION = "release-0.7-clean-v2";
 
 export type IssueSyncState = "synced" | "local";
 
@@ -50,14 +51,20 @@ export class RemoteIssueStore implements IssueStore {
   async save(issue: Issue) {
     const response = await fetch("/api/issues", {
       method: "PUT",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-lexozine-write-generation": WRITE_GENERATION,
+      },
       body: JSON.stringify(issue),
     });
     if (!response.ok) throw new Error(`Issue save failed (${response.status})`);
     return (await response.json()).issue as Issue;
   }
   async remove(id: string) {
-    const response = await fetch(`/api/issues/${encodeURIComponent(id)}`, { method: "DELETE" });
+    const response = await fetch(`/api/issues/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { "x-lexozine-write-generation": WRITE_GENERATION },
+    });
     if (!response.ok && response.status !== 404) throw new Error(`Issue deletion failed (${response.status})`);
   }
 }
