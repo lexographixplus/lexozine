@@ -67,27 +67,78 @@ function normalizedElementType(element: Element, headlineSeen: boolean): MappedE
   return null;
 }
 
+function flushParagraphRun(run: string[], blocks: StoryBlock[], columns: 1 | 2 | 3) {
+  if (!run.length) return;
+  const trimmed = [...run];
+  while (trimmed[0] === "") trimmed.shift();
+  while (trimmed.at(-1) === "") trimmed.pop();
+  if (!trimmed.length) return;
+  const content = trimmed.map((item) => item || "<br>").join("");
+  if (content.replace(/<[^>]+>/g, "").trim()) blocks.push(makeBlock({ type: "body" }, content, blocks.length, columns));
+}
+
 export function blocksFromStructuredHtml(html: string, columns: 1 | 2 | 3): StoryBlock[] {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll("script,style,noscript,iframe,object,embed").forEach((node) => node.remove());
   const blocks: StoryBlock[] = [];
   let headlineSeen = false;
+  let paragraphRun: string[] = [];
+
+  const flush = () => {
+    flushParagraphRun(paragraphRun, blocks, columns);
+    paragraphRun = [];
+  };
 
   for (const element of Array.from(doc.body.children)) {
     const mapped = normalizedElementType(element, headlineSeen);
-    if (!mapped) continue;
+    if (!mapped) {
+      flush();
+      continue;
+    }
+    const tag = element.tagName.toLowerCase();
     const content = mappedContent(element, mapped.type);
+
+    if (mapped.type === "body" && !mapped.textStyle && tag === "p") {
+      if (!content || !content.replace(/<[^>]+>/g, "").trim()) paragraphRun.push("");
+      else paragraphRun.push(`<p>${content}</p>`);
+      continue;
+    }
+
+    flush();
     if (!content || !content.replace(/<[^>]+>/g, "").trim()) continue;
     blocks.push(makeBlock(mapped, content, blocks.length, columns));
     if (mapped.type === "headline") headlineSeen = true;
   }
 
+  flush();
   return blocks;
 }
 
+function looksLikeVerse(text: string) {
+  const lines = text.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 4) return false;
+  const averageLength = lines.reduce((sum, line) => sum + line.length, 0) / lines.length;
+  const shortLines = lines.filter((line) => line.length <= 90).length;
+  return averageLength <= 85 && shortLines / lines.length >= 0.7;
+}
+
 export function blocksFromPlainText(text: string, columns: 1 | 2 | 3): StoryBlock[] {
-  const parts = text
-    .replace(/\r/g, "")
+  const normalized = text.replace(/\r/g, "").trim();
+  if (looksLikeVerse(normalized)) {
+    const lines = normalized.split("\n");
+    const firstNonEmpty = lines.findIndex((line) => line.trim());
+    const headline = firstNonEmpty >= 0 ? lines[firstNonEmpty].trim() : "";
+    const bodyLines = lines.slice(firstNonEmpty + 1);
+    while (!bodyLines[0]?.trim()) bodyLines.shift();
+    while (bodyLines.length && !bodyLines.at(-1)?.trim()) bodyLines.pop();
+    const body = bodyLines.map((line) => escapeHtml(line.trimEnd())).join("<br>");
+    const result: StoryBlock[] = [];
+    if (headline) result.push(makeBlock({ type: "headline" }, escapeHtml(headline), result.length, columns));
+    if (body.replace(/<br>/g, "").trim()) result.push(makeBlock({ type: "body" }, body, result.length, columns));
+    return result;
+  }
+
+  const parts = normalized
     .split(/\n{2,}|\n(?=[A-Z][^\n]{0,100}$)/g)
     .map((item) => item.trim())
     .filter(Boolean);
