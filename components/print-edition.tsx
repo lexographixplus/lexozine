@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Issue, StoryBlock } from "@/lib/editor-model";
 import { defaultFrameFor, defaultImagePlacement, themeTokens } from "@/lib/editor-model";
+import { findEditorsNote } from "@/lib/editors-note";
 import { defaultLayoutSettings } from "@/lib/layout-composer";
 import { resolveActiveCoverAsset, resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
 
@@ -49,6 +50,8 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
   const activeCoverAsset = resolveActiveCoverAsset(issue);
   const coverImageUrl = resolveCoverImageUrl(issue);
   const importedCover = cover.mode === "imported" && Boolean(coverImageUrl);
+  const editorsNote = findEditorsNote(issue);
+  const stories = issue.articles.filter((article) => article.id !== editorsNote?.id);
   const coverPhotoStyle: CSSProperties | undefined = coverImageUrl ? {
     backgroundImage: `url(${coverImageUrl})`,
     backgroundSize: activeCoverAsset?.kind === "wrap" ? "200% 100%" : cover.heroFit,
@@ -67,8 +70,13 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
       {coverImageUrl ? <div className="print-cover-photo" style={coverPhotoStyle}/>:<div className="print-cover-art"/>}
       {!importedCover ? <><div className="print-cover-overlay" style={overlayStyle}/><div className="print-cover-top"><span>ISSUE {issue.number}</span><span>{issue.editionDate}</span></div><div className="print-masthead">{cover.masthead}</div><div className="print-cover-copy" style={{textAlign:cover.textAlign}}><span>{issue.title}</span><h1>{cover.mainHeadline}</h1><p>{cover.deck}</p></div><div className="print-coverlines">{cover.lines.map((line)=><span key={line}>{line}</span>)}</div></> : null}
     </section>
-    <section className="print-page print-toc"><div className="print-toc-number">{issue.number}</div><h1>Contents</h1><p>{issue.description}</p><ol>{issue.articles.map((article,index)=><li key={article.id}><span>{String(index+1).padStart(2,"0")}</span><div><strong>{article.title}</strong><small>{article.category} · {article.byline}</small></div></li>)}</ol></section>
-    {issue.articles.map((article,index)=>{
+    <section className="print-page print-toc"><div className="print-toc-number">{issue.number}</div><h1>Contents</h1><p>{issue.description}</p><ol>{editorsNote ? <li key={editorsNote.id}><span>EN</span><div><strong>{editorsNote.title}</strong><small>Editor&apos;s Note · {editorsNote.byline}</small></div></li> : null}{stories.map((article,index)=><li key={article.id}><span>{String(index+1).padStart(2,"0")}</span><div><strong>{article.title}</strong><small>{article.category} · {article.byline}</small></div></li>)}</ol></section>
+    {editorsNote ? (() => {
+      const articleTheme=themeTokens[editorsNote.theme];
+      const ordered=[...editorsNote.blocks].sort((a,b)=>a.order-b.order);
+      return <section key={editorsNote.id} className="print-page print-composed-page print-editors-note print-category-editorial" style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>Editor&apos;s Note</span><span>EN</span></div><div className="print-composed-meta"><span>Editor&apos;s Note</span><strong>{editorsNote.byline} · {editorsNote.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${editorsNote.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={editorsNote.columns}/>)}</div></section>;
+    })() : null}
+    {stories.map((article,index)=>{
       const hasFrames=article.blocks.some((block)=>block.frame);
       const articleTheme=themeTokens[article.theme];
       const ordered=[...article.blocks].sort((a,b)=>a.order-b.order);
