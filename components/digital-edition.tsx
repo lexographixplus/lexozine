@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { Issue, StoryBlock, defaultImagePlacement } from "@/lib/editor-model";
+import { findEditorsNote } from "@/lib/editors-note";
 import { defaultLayoutSettings } from "@/lib/layout-composer";
 import { resolveActiveCoverAsset, resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
 
@@ -21,7 +22,12 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
   const activeCoverAsset = resolveActiveCoverAsset(issue);
   const coverImageUrl = resolveCoverImageUrl(issue);
   const importedCover = cover.mode === "imported" && Boolean(coverImageUrl);
-  const stories = useMemo(() => issue.articles, [issue.articles]);
+  const editorsNote = useMemo(() => findEditorsNote(issue), [issue]);
+  const stories = useMemo(
+    () => issue.articles.filter((article) => article.id !== editorsNote?.id),
+    [issue.articles, editorsNote?.id],
+  );
+  const beginHref = editorsNote ? "#editors-note" : stories.length ? "#story-1" : "#edition-end";
 
   async function share() {
     const url = window.location.href;
@@ -45,6 +51,36 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
     return <div key={block.id} className="edition-composer-block edition-composer-body" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
   }
 
+  function renderEditorsNote() {
+    if (!editorsNote) return null;
+    const visible = [...editorsNote.blocks].sort((a, b) => a.order - b.order).filter((block) => !block.layout?.hidden);
+    const headline = visible.find((block) => block.type === "headline");
+    const deck = visible.find((block) => block.type === "deck");
+    const supporting = visible.filter((block) => block.id !== headline?.id && block.id !== deck?.id);
+
+    return (
+      <section className="edition-intro" id="editors-note">
+        <span className="edition-large-number">{issue.number}</span>
+        <div>
+          <span className="eyebrow">Editor&apos;s note</span>
+          <h2 dangerouslySetInnerHTML={{ __html: headline?.content || editorsNote.title }}/>
+          <div className="edition-byline"><span>{editorsNote.byline}</span><span>{editorsNote.readTime}</span></div>
+        </div>
+        <div style={{ display: "grid", gap: 18 }}>
+          {deck ? <div style={{ fontSize: 20, lineHeight: 1.5, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: deck.content }}/> : null}
+          {supporting.map((block) => {
+            if (block.type === "image") {
+              const placement = block.placement ?? defaultImagePlacement;
+              return block.imageUrl ? <figure key={block.id} style={{ margin: 0 }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={block.imageUrl} alt={placement.alt} style={{ width: "100%", maxHeight: 420, objectFit: placement.fit, objectPosition: `${placement.focalX}% ${placement.focalY}%` }}/>{placement.caption ? <figcaption style={{ marginTop: 7, fontSize: 11 }}>{placement.caption}</figcaption> : null}</figure> : null;
+            }
+            const isQuote = block.type === "pullquote";
+            return <div key={block.id} style={{ fontSize: isQuote ? 22 : 17, lineHeight: isQuote ? 1.5 : 1.8, fontStyle: isQuote ? "italic" : "normal" }} dangerouslySetInnerHTML={{ __html: block.content }}/>;
+          })}
+        </div>
+      </section>
+    );
+  }
+
   const coverArtStyle = coverImageUrl ? {
     backgroundImage: `url(${coverImageUrl})`,
     backgroundSize: activeCoverAsset?.kind === "wrap" ? "200% 100%" : cover.heroFit,
@@ -62,14 +98,14 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
     <main className="edition-shell" style={{ "--edition-accent": palette.primary } as CSSProperties}>
       <header className="edition-nav"><button className="edition-menu" onClick={() => setNavOpen((value) => !value)} aria-label="Toggle contents"><Menu size={18} /></button><div className="edition-brand">{cover.masthead}</div><div className="edition-meta">ISSUE {issue.number} · {issue.editionDate.toUpperCase()}</div><button className="edition-share" onClick={share}><Share2 size={16} /><span>Share</span></button></header>
 
-      {navOpen ? <aside className="edition-drawer"><span className="eyebrow">In this issue</span>{stories.map((story, index) => <a key={story.id} href={`#story-${index + 1}`} onClick={() => setNavOpen(false)}><span>{String(index + 1).padStart(2,"0")}</span>{story.title}</a>)}</aside> : null}
+      {navOpen ? <aside className="edition-drawer"><span className="eyebrow">In this issue</span>{editorsNote ? <a href="#editors-note" onClick={() => setNavOpen(false)}><span>EN</span>{editorsNote.title}</a> : null}{stories.map((story, index) => <a key={story.id} href={`#story-${index + 1}`} onClick={() => setNavOpen(false)}><span>{String(index + 1).padStart(2,"0")}</span>{story.title}</a>)}</aside> : null}
 
       <section className={`edition-cover ${importedCover ? "edition-cover-imported" : "edition-cover-generated"}`}>
         {coverImageUrl ? <div className="edition-cover-art has-photo" style={coverArtStyle} /> : <div className="edition-cover-art" />}
-        {!importedCover ? <><div className="edition-cover-overlay" style={overlayStyle}/><div className="edition-cover-copy" style={{ textAlign: cover.textAlign }}><span className="edition-kicker">{issue.title} · Issue {issue.number}</span><h1>{cover.mainHeadline}</h1><div>{cover.deck}</div><a href="#story-1" className="edition-read">Begin reading <ArrowDown size={17} /></a></div><div className="edition-coverlines">{cover.lines.map((line) => <span key={line}>{line}</span>)}</div></> : null}
+        {!importedCover ? <><div className="edition-cover-overlay" style={overlayStyle}/><div className="edition-cover-copy" style={{ textAlign: cover.textAlign }}><span className="edition-kicker">{issue.title} · Issue {issue.number}</span><h1>{cover.mainHeadline}</h1><div>{cover.deck}</div><a href={beginHref} className="edition-read">Begin reading <ArrowDown size={17} /></a></div><div className="edition-coverlines">{cover.lines.map((line) => <span key={line}>{line}</span>)}</div></> : null}
       </section>
 
-      <section className="edition-intro"><span className="edition-large-number">{issue.number}</span><div><span className="eyebrow">Editor&apos;s note</span><h2>{issue.title}</h2></div><p>{issue.description}</p></section>
+      {renderEditorsNote()}
 
       {stories.map((story, index) => {
         const visibleBlocks = [...story.blocks].sort((a,b)=>a.order-b.order).filter((block)=>!block.layout?.hidden);
@@ -77,7 +113,7 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
         return <article id={`story-${index + 1}`} key={story.id} className={`edition-story story-layout-${story.layout} ${presetClass} edition-composed-story`}><header className="edition-story-head edition-composed-head"><div className="edition-story-index">{String(index+1).padStart(2,"0")}</div><div><span className="edition-story-category">{story.category}</span><div className="edition-byline"><span>{story.byline}</span><span>{story.readTime}</span></div></div></header><div className={`edition-composer-grid cols-${story.columns}`} style={{gridTemplateColumns:`repeat(${story.columns},minmax(0,1fr))`}}>{visibleBlocks.map((block)=>renderBlock(block,story.columns))}</div></article>;
       })}
 
-      <footer className="edition-footer"><div className="edition-brand">{cover.masthead}</div><p>CREATE · PUBLISH · DIGITIZE · GROW</p><span>LexoGraphix Plus</span></footer>
+      <footer className="edition-footer" id="edition-end"><div className="edition-brand">{cover.masthead}</div><p>CREATE · PUBLISH · DIGITIZE · GROW</p><span>LexoGraphix Plus</span></footer>
     </main>
   );
 }
