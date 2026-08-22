@@ -1,12 +1,12 @@
 "use client";
 
-import { BookOpen, CheckCircle2, Eye, FilePenLine, FileText, ImageIcon, Images, LayoutDashboard } from "lucide-react";
+import { BookOpen, CheckCircle2, Download, Eye, FilePenLine, FileText, ImageIcon, Images, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import type { MouseEvent } from "react";
 
 type IssueNavigationProps = {
   issueId: string;
-  active?: "issue" | "articles" | "editors-note" | "cover" | "media" | "review" | "preview";
+  active?: "issue" | "articles" | "editors-note" | "cover" | "media" | "review" | "preview" | "export";
   onNavigate?: (href: string) => void | Promise<void>;
 };
 
@@ -19,6 +19,7 @@ export default function IssueNavigation({ issueId, active = "issue", onNavigate 
     { id: "media" as const, label: "Media", icon: Images, href: `/media?issue=${issueId}` },
     { id: "review" as const, label: "Review", icon: CheckCircle2, href: `/review?issue=${issueId}` },
     { id: "preview" as const, label: "Preview", icon: Eye, href: `/preview?issue=${issueId}` },
+    { id: "export" as const, label: "Export", icon: Download, href: `/export?issue=${issueId}` },
   ];
 
   function handleClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
