@@ -11,15 +11,6 @@ import { ensurePublicationSlug, publicIssueUrl } from "@/lib/publication";
 
 type IssueTemplateKind = "editorial" | "culture" | "minimal";
 
-function seedIssues(): Issue[] {
-  const first = createIssueTemplate("editorial");
-  const second = createIssueTemplate("culture");
-  second.number = "02";
-  second.status = "review";
-  second.title = "Living Archives";
-  return [first, second];
-}
-
 export default function IssueDashboard() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -32,13 +23,7 @@ export default function IssueDashboard() {
   useEffect(() => {
     let alive = true;
     async function load() {
-      let next = await issueStore?.list() ?? [];
-      if (!next.length) {
-        next = seedIssues();
-        const saved: Issue[] = [];
-        for (const issue of next) saved.push(await issueStore?.save(issue) ?? issue);
-        next = saved;
-      }
+      const next = await issueStore?.list() ?? [];
       if (alive) {
         setIssues(next);
         setHydrated(true);
@@ -167,7 +152,7 @@ export default function IssueDashboard() {
 
   return (
     <main className="dashboard-shell">
-      <header className="dashboard-topbar"><div className="brand-lockup"><div className="brand-mark">LZ</div><div><div className="brand-title">Lexozine <span>Studio</span></div><div className="brand-subtitle">Editorial publishing workspace</div></div></div>{hydrated && issues[0] ? <Link className="primary-button" href={`/issues/${issues[0].id}`}><BookOpen size={16} /> Open workspace</Link> : <span className="secondary-button">Loading issues…</span>}</header>
+      <header className="dashboard-topbar"><div className="brand-lockup"><div className="brand-mark">LZ</div><div><div className="brand-title">Lexozine <span>Studio</span></div><div className="brand-subtitle">Editorial publishing workspace</div></div></div>{hydrated && issues[0] ? <Link className="primary-button" href={`/issues/${issues[0].id}`}><BookOpen size={16} /> Open workspace</Link> : hydrated ? <button className="primary-button" onClick={openCreator}><Plus size={16}/> Create first issue</button> : <span className="secondary-button">Loading issues…</span>}</header>
       <section className="dashboard-hero"><div><span className="eyebrow">Editorial operations</span><h1>Issues</h1><p>Manage each edition through writing, design, review and publication from one structured workflow.</p>{message ? <div className="publication-message">{message}</div> : null}</div><button className="dashboard-create" onClick={() => showTemplates ? closeCreator() : openCreator()}><Plus size={17} /> {showTemplates ? "Close" : "New issue"}</button></section>
 
       {showTemplates ? (
@@ -195,7 +180,7 @@ export default function IssueDashboard() {
           const publicationLabel = publicationUrl?.replace(/^https?:\/\//, "");
           return <article key={issue.id} className="issue-card"><div className={`issue-cover-mini issue-theme-${issue.theme}`}><span className="mini-issue-number">ISSUE {issue.number}</span><strong>LEXOZINE</strong><div><small>{issue.editionDate}</small><h2>{issue.title}</h2></div></div><div className="issue-card-body"><div className="issue-card-topline"><span className={`status-pill status-${issue.status}`}>{issue.status}</span><Link href={`/review?issue=${issue.id}`} className="icon-button" title="Review issue"><MessageSquareText size={16} /></Link></div><h3>{issue.title}</h3><p>{issue.description}</p><div className="issue-stats"><span><FilePlus2 size={13} /> {issue.articles.length} stories</span><span><CalendarDays size={13} /> {issue.editionDate}</span></div><div className="publication-controls"><label><Globe2 size={14}/><select value={issue.visibility ?? "private"} onChange={(event) => void setVisibility(issue, event.target.value as PublicationVisibility)}><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option></select></label>{isPublished ? <button className="publication-action secondary" onClick={() => void unpublishIssue(issue)}>Unpublish</button> : <button className="publication-action" onClick={() => void publishIssue(issue)}>Publish</button>}{shareable ? <><button className="icon-button" title="Copy public link" onClick={() => void copyPublicLink(issue)}><Link2 size={15}/></button><a className="icon-button" title="Open public reader" href={publicIssueUrl(issue)} target="_blank" rel="noreferrer"><ExternalLink size={15}/></a></> : null}</div>{publicationLabel ? <div className="publication-slug">{publicationLabel}</div> : null}<div className="issue-card-actions"><Link href={`/issues/${issue.id}`} className="primary-button">Open workspace <ArrowRight size={15} /></Link><Link href={`/review?issue=${issue.id}`} className="icon-button" title="Review"><MessageSquareText size={15} /></Link><button className="icon-button" title="Duplicate issue" onClick={() => void duplicate(issue)}><Copy size={15} /></button><button className="icon-button dashboard-delete" title="Delete issue" onClick={() => void removeIssue(issue)}><Trash2 size={15} /></button></div></div></article>;
         })}
-        <button className="new-issue-placeholder" onClick={openCreator}><Plus size={24} /><strong>Create another issue</strong><span>Name it, then start blank or choose a reusable publication template</span></button>
+        {!filtered.length && hydrated ? <button className="new-issue-placeholder" onClick={openCreator}><Plus size={24} /><strong>Create your first issue</strong><span>Name it, then start blank or choose a reusable publication template</span></button> : <button className="new-issue-placeholder" onClick={openCreator}><Plus size={24} /><strong>Create another issue</strong><span>Name it, then start blank or choose a reusable publication template</span></button>}
       </section>
     </main>
   );
