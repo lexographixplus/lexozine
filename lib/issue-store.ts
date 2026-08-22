@@ -48,6 +48,18 @@ export class RemoteIssueStore implements IssueStore {
     if (!response.ok) throw new Error(`Issue fetch failed (${response.status})`);
     return (await response.json()).issue as Issue;
   }
+  async create(issue: Issue) {
+    const response = await fetch("/api/issues", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-lexozine-write-generation": WRITE_GENERATION,
+      },
+      body: JSON.stringify(issue),
+    });
+    if (!response.ok) throw new Error(`Issue creation failed (${response.status})`);
+    return (await response.json()).issue as Issue;
+  }
   async save(issue: Issue) {
     const response = await fetch("/api/issues", {
       method: "PUT",
@@ -96,6 +108,7 @@ export class HybridIssueStore implements IssueStore {
     try {
       const issue = await this.remote.get(id);
       if (issue) await this.cache(issue);
+      else await this.browser.remove(id);
       this.lastSyncState = "synced";
       this.lastSyncError = "";
       return issue;
@@ -106,9 +119,10 @@ export class HybridIssueStore implements IssueStore {
     }
   }
   async save(issue: Issue) {
+    const existedLocally = this.browser.readAll().some((item) => item.id === issue.id);
     const cached = await this.browser.save(issue);
     try {
-      const saved = await this.remote.save(cached);
+      const saved = existedLocally ? await this.remote.save(cached) : await this.remote.create(cached);
       await this.replaceCachedId(cached.id, saved);
       this.lastSyncState = "synced";
       this.lastSyncError = "";
