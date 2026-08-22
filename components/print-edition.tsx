@@ -22,11 +22,15 @@ function textFromHtml(html: string) {
     .replace(/&quot;/gi, '"');
 }
 
-function poetryMetrics(article: Article) {
-  const verse = article.blocks
+function articleText(article: Article) {
+  return article.blocks
     .filter((block) => block.type === "body")
     .map((block) => textFromHtml(block.content))
     .join("\n");
+}
+
+function poetryMetrics(article: Article) {
+  const verse = articleText(article);
   const lines = verse.split(/\n+/).map((line) => line.trim()).filter(Boolean).length;
   const characters = verse.replace(/\s+/g, " ").trim().length;
   return { lines, characters };
@@ -36,6 +40,13 @@ function usesLongPoetryPrint(article: Article) {
   if (classSlug(article.category) !== "poetry") return false;
   const { lines, characters } = poetryMetrics(article);
   return lines >= 32 || characters >= 1900;
+}
+
+function usesLongProsePrint(article: Article) {
+  if (classSlug(article.category) === "poetry") return false;
+  const characters = articleText(article).replace(/\s+/g, " ").trim().length;
+  const minutes = Number.parseInt(article.readTime, 10) || 0;
+  return characters >= 3000 || minutes >= 4;
 }
 
 function Frame({ block }: { block: StoryBlock }) {
@@ -111,8 +122,9 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
       const ordered=[...article.blocks].sort((a,b)=>a.order-b.order);
       const presetClass=`print-category-${classSlug(article.category)}`;
       const longPoetryClass=usesLongPoetryPrint(article) ? " print-poetry-long" : "";
-      if(hasFrames) return <section key={article.id} className={`print-page print-frame-page ${presetClass}${longPoetryClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div>{ordered.map((block)=><Frame key={block.id} block={block}/>)}</section>;
-      return <section key={article.id} className={`print-page print-composed-page ${presetClass}${longPoetryClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div><div className="print-composed-meta"><span>{article.category}</span><strong>{article.byline} · {article.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${article.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={article.columns}/>)}</div></section>;
+      const longProseClass=usesLongProsePrint(article) ? " print-prose-long" : "";
+      if(hasFrames) return <section key={article.id} className={`print-page print-frame-page ${presetClass}${longPoetryClass}${longProseClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div>{ordered.map((block)=><Frame key={block.id} block={block}/>)}</section>;
+      return <section key={article.id} className={`print-page print-composed-page ${presetClass}${longPoetryClass}${longProseClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div><div className="print-composed-meta"><span>{article.category}</span><strong>{article.byline} · {article.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${article.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={article.columns}/>)}</div></section>;
     })}
   </main>;
 }
