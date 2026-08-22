@@ -3,6 +3,7 @@ import IssueNavigation from "@/components/issue-navigation";
 import { getIssue, listIssues } from "@/lib/server/issue-repository";
 import "./preview.css";
 import "./preview-v2.css";
+import "./poetry-columns.css";
 import "../issues/release-07.css";
 
 export const dynamic = "force-dynamic";
