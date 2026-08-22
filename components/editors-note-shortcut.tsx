@@ -4,6 +4,7 @@ import { ArrowRight, FilePenLine, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Article, Issue, IssuePage } from "@/lib/editor-model";
 import { createId } from "@/lib/editor-model";
+import { findEditorsNote, setEditorsNoteArticleId } from "@/lib/editors-note";
 import { setArticleWorkflowStatus } from "@/lib/editorial-workflow";
 import { applyLayoutPreset } from "@/lib/layout-composer";
 import { issueStore } from "@/lib/issue-store";
@@ -54,12 +55,6 @@ function createEditorsNote(issue: Issue): Article {
   return applyLayoutPreset(article, "editors-note");
 }
 
-function findEditorsNote(issue: Issue | null) {
-  if (!issue) return null;
-  const exact = issue.articles.find((article) => articleSlug(article.title) === "editor-s-note" || articleSlug(article.title) === "editors-note");
-  return exact ?? issue.articles.find((article) => article.category === "Editorial") ?? null;
-}
-
 export default function EditorsNoteShortcut({ issueId }: { issueId: string }) {
   const [issue, setIssue] = useState<Issue | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +81,13 @@ export default function EditorsNoteShortcut({ issueId }: { issueId: string }) {
   async function openOrCreate() {
     if (!issue || creating) return;
     if (editorsNote) {
+      const alreadyLinked = issue.production?.editorialWorkflow &&
+        (issue.production.editorialWorkflow as typeof issue.production.editorialWorkflow & { editorsNoteArticleId?: string }).editorsNoteArticleId === editorsNote.id;
+      if (!alreadyLinked) {
+        const linked = setEditorsNoteArticleId(issue, editorsNote.id);
+        const saved = await issueStore?.save(linked) ?? linked;
+        setIssue(saved);
+      }
       window.location.href = `/issues/${encodeURIComponent(issue.id)}/articles/${encodeURIComponent(editorsNote.id)}`;
       return;
     }
@@ -101,11 +103,12 @@ export default function EditorsNoteShortcut({ issueId }: { issueId: string }) {
         articleId: article.id,
         order: issue.pages.length,
       };
-      const next = setArticleWorkflowStatus(
+      const withStatus = setArticleWorkflowStatus(
         { ...issue, articles: [...issue.articles, article], pages: [...issue.pages, page], updatedAt: new Date().toISOString() },
         article.id,
         "draft",
       );
+      const next = setEditorsNoteArticleId(withStatus, article.id);
       const saved = await issueStore?.save(next) ?? next;
       setIssue(saved);
       window.location.href = `/issues/${encodeURIComponent(saved.id)}/articles/${encodeURIComponent(article.id)}`;
