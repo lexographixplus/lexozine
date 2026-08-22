@@ -7,22 +7,29 @@
 .print-toc li strong{font-size:11.25pt;line-height:1.08}
 .print-toc li small{margin-top:1.2mm;font-size:5.8pt;line-height:1.25;letter-spacing:.065em}
 
-.print-prose-long{padding-left:16mm;padding-right:16mm}
-.print-prose-long .print-composed-meta{margin-top:5mm}
-.print-prose-long .print-composer-grid{display:block;margin-top:7mm}
+.print-prose-long{padding:15mm 15mm 12mm}
+.print-prose-long .print-composed-meta{margin-top:4mm;padding-top:4mm;padding-bottom:3mm}
+.print-prose-long .print-composer-grid{display:block;margin-top:5.5mm}
 .print-prose-long .print-composer-block{width:100%;max-width:none}
-.print-prose-long .print-composer-block+.print-composer-block{margin-top:5mm}
-.print-prose-long .print-composer-headline{max-width:170mm;font-size:27pt;line-height:.98}
-.print-prose-long .print-composer-deck{max-width:150mm;font:italic 10.5pt/1.5 var(--font-display)}
-.print-prose-long .print-composer-body{max-width:none;columns:2;column-gap:8mm;font:9.6pt/1.54 Georgia,serif;hyphens:auto;orphans:3;widows:3}
-.print-prose-long .print-composer-body p{margin:0 0 3.4mm;break-inside:auto}
-.print-prose-long .print-composer-body ul,.print-prose-long .print-composer-body ol{margin:0 0 3.5mm;padding-left:5mm;break-inside:avoid-column}
-.print-prose-long .print-composer-subheading{margin-top:7mm;max-width:none;font-size:14pt;line-height:1.15}
-.print-prose-long .print-composer-quote{max-width:150mm;margin:7mm 0;font-size:15pt}
-.print-prose-long .print-composer-image{margin:0 0 6mm;break-inside:avoid}
-.print-prose-long .print-composer-image img{height:66mm}
+.print-prose-long .print-composer-block+.print-composer-block{margin-top:3.5mm}
+.print-prose-long .print-composer-headline{max-width:176mm;font-size:25pt;line-height:.96}
+.print-prose-long .print-composer-deck{max-width:156mm;font:italic 9.8pt/1.42 var(--font-display)}
+.print-prose-long .print-composer-body{max-width:none;columns:2;column-gap:7.5mm;column-fill:balance;font:8.65pt/1.43 Georgia,serif;hyphens:auto;orphans:3;widows:3}
+.print-prose-long .print-composer-body p{margin:0 0 2.35mm;break-inside:auto}
+.print-prose-long .print-composer-body ul,.print-prose-long .print-composer-body ol{margin:0 0 2.5mm;padding-left:4.6mm;break-inside:avoid-column}
+.print-prose-long .print-composer-subheading{margin-top:4.5mm;max-width:none;font-size:12.7pt;line-height:1.12;break-after:avoid;page-break-after:avoid}
+.print-prose-long .print-composer-quote{max-width:158mm;margin:4.5mm 0;font-size:14pt}
+.print-prose-long .print-composer-image{margin:0 0 4.5mm;break-inside:avoid}
+.print-prose-long .print-composer-image img{height:60mm}
+
+.print-category-serial-fiction.print-prose-long{padding-top:14mm;padding-bottom:10mm}
+.print-category-serial-fiction.print-prose-long .print-composer-grid{margin-top:4.5mm}
+.print-category-serial-fiction.print-prose-long .print-composer-body{font-size:8.35pt;line-height:1.39;column-gap:7mm}
+.print-category-serial-fiction.print-prose-long .print-composer-body p{margin-bottom:2mm}
+.print-category-serial-fiction.print-prose-long .print-composer-subheading{margin-top:3.5mm;padding-top:1.8mm;font-size:12pt}
 
 @media print{
   .print-toc ol{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(10,auto)}
-  .print-prose-long .print-composer-body{columns:2;column-gap:8mm}
+  .print-prose-long .print-composer-body{columns:2;column-gap:7.5mm}
+  .print-category-serial-fiction.print-prose-long .print-composer-body{column-gap:7mm}
 }
