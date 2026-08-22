@@ -60,7 +60,7 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
 
     return (
       <section className="edition-intro" id="editors-note">
-        <span className="edition-large-number">{issue.number}</span>
+        <span className="edition-large-number">EN</span>
         <div>
           <span className="eyebrow">Editor&apos;s note</span>
           <h2 dangerouslySetInnerHTML={{ __html: headline?.content || editorsNote.title }}/>
