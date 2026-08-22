@@ -1,6 +1,6 @@
 import type { Issue } from "./editor-model";
 
-export const ISSUE_CACHE_KEY = "lexozine-issues-v1";
+export const ISSUE_CACHE_KEY = "lexozine-issues-v2";
 
 export type IssueSyncState = "synced" | "local";
 
