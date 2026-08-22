@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
@@ -17,6 +19,12 @@ function fileSafe(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "lexozine";
 }
 
+async function chromiumExecutablePath() {
+  const tracedBin = path.join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin");
+  if (fs.existsSync(tracedBin)) return chromium.executablePath(tracedBin);
+  return chromium.executablePath();
+}
+
 export async function GET(request: Request) {
   if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const requestUrl = new URL(request.url);
@@ -25,14 +33,15 @@ export async function GET(request: Request) {
   const issue = await getIssue(issueId);
   if (!issue) return NextResponse.json({ error: "Issue not found" }, { status: 404 });
 
-  const browser = await puppeteer.launch({
-    args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
-    defaultViewport: { width: 1440, height: 1800, deviceScaleFactor: 1 },
-    executablePath: await chromium.executablePath(),
-    headless: "shell",
-  });
-
+  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
   try {
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: { width: 1440, height: 1800, deviceScaleFactor: 1 },
+      executablePath: await chromiumExecutablePath(),
+      headless: "shell",
+    });
+
     const page = await browser.newPage();
     const origin = requestUrl.origin;
     const cookie = request.headers.get("cookie") ?? "";
@@ -68,7 +77,13 @@ export async function GET(request: Request) {
         "cache-control": "private, no-store",
       },
     });
+  } catch (error) {
+    console.error("PDF generation failed", error);
+    return NextResponse.json(
+      { error: "PDF generation failed", detail: error instanceof Error ? error.message : "Unknown PDF error" },
+      { status: 500 },
+    );
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
   }
 }
