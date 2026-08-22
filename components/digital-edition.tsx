@@ -4,13 +4,41 @@ import { ArrowDown, Menu, Share2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import { createIssueTemplate } from "@/lib/issue-templates";
-import { Issue, StoryBlock, defaultImagePlacement } from "@/lib/editor-model";
+import { Article, Issue, StoryBlock, defaultImagePlacement } from "@/lib/editor-model";
 import { findEditorsNote } from "@/lib/editors-note";
 import { defaultLayoutSettings } from "@/lib/layout-composer";
 import { resolveActiveCoverAsset, resolveCoverDesign, resolveCoverImageUrl, resolveIssuePalette } from "@/lib/magazine-design";
 
 function classSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function textFromHtml(html: string) {
+  return html
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/p\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#39;/gi, "'")
+    .replace(/&quot;/gi, '"');
+}
+
+function articleText(article: Article) {
+  return article.blocks
+    .filter((block) => block.type === "body")
+    .map((block) => textFromHtml(block.content))
+    .join("\n");
+}
+
+function usesLongPoetryReading(article: Article) {
+  if (classSlug(article.category) !== "poetry") return false;
+  const verse = articleText(article);
+  const lines = verse.split(/\n+/).map((line) => line.trim()).filter(Boolean).length;
+  const characters = verse.replace(/\s+/g, " ").trim().length;
+  return lines >= 32 || characters >= 1900;
 }
 
 export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue }) {
@@ -110,7 +138,8 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
       {stories.map((story, index) => {
         const visibleBlocks = [...story.blocks].sort((a,b)=>a.order-b.order).filter((block)=>!block.layout?.hidden);
         const presetClass = `story-category-${classSlug(story.category)}`;
-        return <article id={`story-${index + 1}`} key={story.id} className={`edition-story story-layout-${story.layout} ${presetClass} edition-composed-story`}><header className="edition-story-head edition-composed-head"><div className="edition-story-index">{String(index+1).padStart(2,"0")}</div><div><span className="edition-story-category">{story.category}</span><div className="edition-byline"><span>{story.byline}</span><span>{story.readTime}</span></div></div></header><div className={`edition-composer-grid cols-${story.columns}`} style={{gridTemplateColumns:`repeat(${story.columns},minmax(0,1fr))`}}>{visibleBlocks.map((block)=>renderBlock(block,story.columns))}</div></article>;
+        const longPoetryClass = usesLongPoetryReading(story) ? " story-poetry-long" : "";
+        return <article id={`story-${index + 1}`} key={story.id} className={`edition-story story-layout-${story.layout} ${presetClass}${longPoetryClass} edition-composed-story`}><header className="edition-story-head edition-composed-head"><div className="edition-story-index">{String(index+1).padStart(2,"0")}</div><div><span className="edition-story-category">{story.category}</span><div className="edition-byline"><span>{story.byline}</span><span>{story.readTime}</span></div></div></header><div className={`edition-composer-grid cols-${story.columns}`} style={{gridTemplateColumns:`repeat(${story.columns},minmax(0,1fr))`}}>{visibleBlocks.map((block)=>renderBlock(block,story.columns))}</div></article>;
       })}
 
       <footer className="edition-footer" id="edition-end"><div className="edition-brand">{cover.masthead}</div><p>CREATE · PUBLISH · DIGITIZE · GROW</p><span>LexoGraphix Plus</span></footer>
