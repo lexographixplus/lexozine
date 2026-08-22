@@ -1,12 +1,12 @@
 "use client";
 
-import { BookOpen, CheckCircle2, Eye, FileText, ImageIcon, Images, LayoutDashboard } from "lucide-react";
+import { BookOpen, CheckCircle2, Eye, FilePenLine, FileText, ImageIcon, Images, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import type { MouseEvent } from "react";
 
 type IssueNavigationProps = {
   issueId: string;
-  active?: "issue" | "articles" | "cover" | "media" | "review" | "preview";
+  active?: "issue" | "articles" | "editors-note" | "cover" | "media" | "review" | "preview";
   onNavigate?: (href: string) => void | Promise<void>;
 };
 
@@ -14,6 +14,7 @@ export default function IssueNavigation({ issueId, active = "issue", onNavigate 
   const items = [
     { id: "issue" as const, label: "Issue", icon: LayoutDashboard, href: `/issues/${issueId}` },
     { id: "articles" as const, label: "Articles", icon: FileText, href: `/issues/${issueId}#articles` },
+    { id: "editors-note" as const, label: "Editor's Note", icon: FilePenLine, href: `/issues/${issueId}#editors-note` },
     { id: "cover" as const, label: "Cover", icon: ImageIcon, href: `/cover?issue=${issueId}` },
     { id: "media" as const, label: "Media", icon: Images, href: `/media?issue=${issueId}` },
     { id: "review" as const, label: "Review", icon: CheckCircle2, href: `/review?issue=${issueId}` },
