@@ -11,7 +11,7 @@ import {
   Quote,
   Underline,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { ClipboardEvent, useEffect, useRef } from "react";
 
 type Props = {
   value: string;
@@ -56,10 +56,23 @@ export default function RichTextEditor({ value, onChange, ariaLabel = "Rich text
     }
   }, [value]);
 
+  function commit() {
+    if (editorRef.current) onChange(sanitizeHtml(editorRef.current.innerHTML));
+  }
+
   function run(command: string, valueArg?: string) {
     editorRef.current?.focus();
     document.execCommand(command, false, valueArg);
-    if (editorRef.current) onChange(sanitizeHtml(editorRef.current.innerHTML));
+    commit();
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+    const plain = event.clipboardData.getData("text/plain");
+    if (!plain || (!plain.includes("\n") && !plain.includes("\r"))) return;
+    event.preventDefault();
+    const safe = escapeHtml(plain.replace(/\r\n?/g, "\n")).replace(/\n/g, "<br>");
+    document.execCommand("insertHTML", false, safe);
+    commit();
   }
 
   const tools = [
@@ -91,7 +104,8 @@ export default function RichTextEditor({ value, onChange, ariaLabel = "Rich text
         role="textbox"
         aria-multiline="true"
         aria-label={ariaLabel}
-        onInput={(event) => onChange(sanitizeHtml(event.currentTarget.innerHTML))}
+        onPaste={handlePaste}
+        onInput={commit}
       />
     </div>
   );
