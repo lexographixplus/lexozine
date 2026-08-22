@@ -1,6 +1,9 @@
 import type { Issue } from "./editor-model";
 
-export const ISSUE_CACHE_KEY = "lexozine-issues-v1";
+export const ISSUE_CACHE_KEY = "lexozine-issues-v2";
+const WRITE_GENERATION = "release-0.7-clean-v2";
+
+export type IssueSyncState = "synced" | "local";
 
 export interface IssueStore {
   list(): Promise<Issue[]>;
@@ -48,14 +51,20 @@ export class RemoteIssueStore implements IssueStore {
   async save(issue: Issue) {
     const response = await fetch("/api/issues", {
       method: "PUT",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-lexozine-write-generation": WRITE_GENERATION,
+      },
       body: JSON.stringify(issue),
     });
     if (!response.ok) throw new Error(`Issue save failed (${response.status})`);
     return (await response.json()).issue as Issue;
   }
   async remove(id: string) {
-    const response = await fetch(`/api/issues/${encodeURIComponent(id)}`, { method: "DELETE" });
+    const response = await fetch(`/api/issues/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { "x-lexozine-write-generation": WRITE_GENERATION },
+    });
     if (!response.ok && response.status !== 404) throw new Error(`Issue deletion failed (${response.status})`);
   }
 }
@@ -63,13 +72,23 @@ export class RemoteIssueStore implements IssueStore {
 export class HybridIssueStore implements IssueStore {
   browser = new BrowserIssueStore();
   remote = new RemoteIssueStore();
+  lastSyncState: IssueSyncState = "synced";
+  lastSyncError = "";
+
+  getSyncState() {
+    return { state: this.lastSyncState, error: this.lastSyncError };
+  }
 
   async list() {
     try {
       const issues = await this.remote.list();
       this.browser.writeAll(issues);
+      this.lastSyncState = "synced";
+      this.lastSyncError = "";
       return issues;
-    } catch {
+    } catch (error) {
+      this.lastSyncState = "local";
+      this.lastSyncError = error instanceof Error ? error.message : "Cloud sync unavailable";
       return this.browser.list();
     }
   }
@@ -77,8 +96,12 @@ export class HybridIssueStore implements IssueStore {
     try {
       const issue = await this.remote.get(id);
       if (issue) await this.cache(issue);
+      this.lastSyncState = "synced";
+      this.lastSyncError = "";
       return issue;
-    } catch {
+    } catch (error) {
+      this.lastSyncState = "local";
+      this.lastSyncError = error instanceof Error ? error.message : "Cloud sync unavailable";
       return this.browser.get(id);
     }
   }
@@ -87,14 +110,25 @@ export class HybridIssueStore implements IssueStore {
     try {
       const saved = await this.remote.save(cached);
       await this.replaceCachedId(cached.id, saved);
+      this.lastSyncState = "synced";
+      this.lastSyncError = "";
       return saved;
-    } catch {
+    } catch (error) {
+      this.lastSyncState = "local";
+      this.lastSyncError = error instanceof Error ? error.message : "Cloud sync unavailable";
       return cached;
     }
   }
   async remove(id: string) {
     await this.browser.remove(id);
-    try { await this.remote.remove(id); } catch { /* keep local deletion; bridge retries later */ }
+    try {
+      await this.remote.remove(id);
+      this.lastSyncState = "synced";
+      this.lastSyncError = "";
+    } catch (error) {
+      this.lastSyncState = "local";
+      this.lastSyncError = error instanceof Error ? error.message : "Cloud sync unavailable";
+    }
   }
   private async cache(issue: Issue) {
     const all = this.browser.readAll();

@@ -1,38 +1,19 @@
 "use client";
 
-import { ArrowLeft, Check, Columns2, Columns3, Grid2X2, LayoutTemplate, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Columns2, Columns3, Grid2X2, LayoutTemplate, PencilRuler } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { Article, Issue } from "@/lib/editor-model";
+import type { Issue } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { issueStore } from "@/lib/issue-store";
-
-type LayoutPreset = {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  columns: 1 | 2 | 3;
-  imageRatio: string;
-  character: string;
-  articleLayout: Article["layout"];
-};
-
-const initialLayouts: LayoutPreset[] = [
-  { id: "feature-opener", name: "Feature Opener", category: "Feature", description: "Large editorial headline, deck and dominant image for long-form story openings.", columns: 2, imageRatio: "3:2", character: "Expressive", articleLayout: "feature" },
-  { id: "classic-essay", name: "Classic Essay", category: "Editorial", description: "Quiet text-led spread with generous margins, drop cap and pull quote rhythm.", columns: 2, imageRatio: "4:3", character: "Literary", articleLayout: "essay" },
-  { id: "visual-report", name: "Visual Report", category: "Culture", description: "Image-forward modular grid for photography, captions and short editorial text.", columns: 3, imageRatio: "1:1", character: "Visual", articleLayout: "visual" },
-  { id: "interview", name: "Interview", category: "People", description: "Portrait-led Q&A system with strong speaker hierarchy and flexible side notes.", columns: 2, imageRatio: "4:5", character: "Conversational", articleLayout: "interview" },
-  { id: "dispatch", name: "Dispatch", category: "News", description: "Dense, efficient page system for briefs, sidebars and multi-item editorial packages.", columns: 3, imageRatio: "16:9", character: "Structured", articleLayout: "essay" },
-  { id: "minimal-profile", name: "Minimal Profile", category: "Profile", description: "Single-subject feature with restrained typography and dramatic negative space.", columns: 1, imageRatio: "2:3", character: "Minimal", articleLayout: "feature" },
-];
+import { applyLayoutPreset, layoutPresets } from "@/lib/layout-composer";
 
 export default function LayoutLibrary() {
-  const [layouts, setLayouts] = useState(initialLayouts);
-  const [active, setActive] = useState(layouts[0].id);
+  const [active, setActive] = useState(layoutPresets[0].id);
   const [issue, setIssue] = useState<Issue>(() => createIssueTemplate("editorial"));
   const [articleId, setArticleId] = useState("");
   const [status, setStatus] = useState("Loading shared issue…");
+  const [applied, setApplied] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -40,14 +21,16 @@ export default function LayoutLibrary() {
       try {
         const issues = await issueStore?.list() ?? [];
         if (!alive) return;
-        const requestedId = new URLSearchParams(window.location.search).get("issue");
+        const params = new URLSearchParams(window.location.search);
+        const requestedId = params.get("issue");
+        const requestedArticleId = params.get("article");
         const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
         if (found) {
           setIssue(found);
-          setArticleId(found.articles[0]?.id ?? "");
-          setStatus("Choose an article and layout");
+          setArticleId(requestedArticleId && found.articles.some((article) => article.id === requestedArticleId) ? requestedArticleId : found.articles[0]?.id ?? "");
+          setStatus("Choose an article type or starting composition. Nothing is locked after you apply it.");
         } else {
-          setStatus("Create an issue before applying a layout");
+          setStatus("Create an issue before applying a preset");
         }
       } catch {
         if (alive) setStatus("Issue state is temporarily unavailable");
@@ -57,7 +40,8 @@ export default function LayoutLibrary() {
     return () => { alive = false; };
   }, []);
 
-  const activeLayout = useMemo(() => layouts.find((layout) => layout.id === active) ?? layouts[0], [layouts, active]);
+  const activeLayout = useMemo(() => layoutPresets.find((layout) => layout.id === active) ?? layoutPresets[0], [active]);
+  const articleEditorHref = articleId ? `/issues/${issue.id}/articles/${articleId}` : `/issues/${issue.id}`;
 
   async function persist(nextIssue: Issue) {
     const saved = await issueStore?.save(nextIssue) ?? nextIssue;
@@ -67,33 +51,43 @@ export default function LayoutLibrary() {
 
   async function applyLayout() {
     if (!articleId) return;
-    setStatus("Applying layout…");
+    setStatus("Applying editable article preset…");
     const now = new Date().toISOString();
-    const nextIssue = {
+    const nextIssue: Issue = {
       ...issue,
-      articles: issue.articles.map((article) => article.id === articleId ? { ...article, layout: activeLayout.articleLayout, columns: activeLayout.columns, updatedAt: now } : article),
+      articles: issue.articles.map((article) => article.id === articleId ? applyLayoutPreset(article, activeLayout.id) : article),
       updatedAt: now,
     };
     try {
       const saved = await persist(nextIssue);
       const article = saved.articles.find((item) => item.id === articleId);
-      setStatus(`${activeLayout.name} applied to ${article?.title ?? "article"}`);
+      setApplied(true);
+      setStatus(`${activeLayout.name} applied to ${article?.title ?? "article"}. Open the editor to reclassify blocks, reorder content, resize columns and customise the composition.`);
     } catch {
-      setStatus("Layout could not be saved. Try again.");
+      setStatus("Preset could not be saved. Try again.");
     }
-  }
-
-  function duplicateLayout(layout: LayoutPreset) {
-    const copy = { ...layout, id: `${layout.id}-${Date.now()}`, name: `${layout.name} Copy` };
-    setLayouts((current) => [...current, copy]);
-    setActive(copy.id);
   }
 
   return (
     <main className="layout-library-page">
-      <header className="layout-library-header"><div className="layout-title-wrap"><Link href={`/?issue=${issue.id}`} className="layout-back"><ArrowLeft size={16} /> Studio</Link><span className="layout-eyebrow">Lexozine design system</span><h1>Layout Library</h1><p>Reusable editorial systems for consistent, high-quality magazine pages and spreads.</p></div><div className="layout-apply-panel"><select value={articleId} onChange={(e)=>setArticleId(e.target.value)}>{issue.articles.map((article)=><option key={article.id} value={article.id}>{article.title}</option>)}</select><button className="layout-create" onClick={()=>void applyLayout()}><Check size={16} /> Apply layout</button><small>{status}</small></div></header>
+      <header className="layout-library-header">
+        <div className="layout-title-wrap">
+          <Link href={`/issues/${issue.id}`} className="layout-back"><ArrowLeft size={16} /> Issue workspace</Link>
+          <span className="layout-eyebrow">Lexozine editorial design system · Release 0.6</span>
+          <h1>Article & Layout Presets</h1>
+          <p>Choose the editorial type that best matches the entry—such as poetry, essay, interview, profile or photo essay. Lexozine applies a sensible starting structure, then you can customise the actual blocks and layout in the Article Editor.</p>
+        </div>
+        <div className="layout-apply-panel">
+          <select value={articleId} onChange={(e)=>{setArticleId(e.target.value);setApplied(false);}}>{issue.articles.map((article)=><option key={article.id} value={article.id}>{article.title}</option>)}</select>
+          <button className="layout-create" onClick={()=>void applyLayout()}><Check size={16} /> Apply & customise</button>
+          <Link className="layout-continue" href={articleEditorHref}>{applied ? "Open article in editor" : "Continue without preset"}</Link>
+          <small>{status}</small>
+        </div>
+      </header>
 
-      <section className="layout-library-grid">{layouts.map((layout) => <article key={layout.id} className={`layout-preset-card ${active === layout.id ? "active" : ""}`} onClick={() => setActive(layout.id)}><div className={`layout-preview columns-${layout.columns}`}><div className="layout-preview-head" /><div className="layout-preview-deck" /><div className="layout-preview-image" /><div className="layout-preview-copy" /><div className="layout-preview-copy short" /><div className="layout-preview-accent" /></div><div className="layout-card-copy"><div className="layout-card-top"><span>{layout.category}</span><strong>{layout.character}</strong></div><h2>{layout.name}</h2><p>{layout.description}</p><div className="layout-specs"><span>{layout.columns === 3 ? <Columns3 size={13} /> : layout.columns === 2 ? <Columns2 size={13} /> : <Grid2X2 size={13} />} {layout.columns} column{layout.columns > 1 ? "s" : ""}</span><span><LayoutTemplate size={13} /> Image {layout.imageRatio}</span></div><button onClick={(event) => { event.stopPropagation(); duplicateLayout(layout); }}><Sparkles size={13} /> Duplicate & customise</button></div></article>)}</section>
+      <section className="layout-flex-note"><PencilRuler size={17}/><div><strong>Presets are starting points, not locks</strong><span>After applying a preset you can change any block type, remove or hide parts, move blocks up or down, reorder images and text, change the 1/2/3-column structure, adjust spans, duplicate blocks and lock elements you want to keep in place.</span></div></section>
+
+      <section className="layout-library-grid">{layoutPresets.map((layout) => <article key={layout.id} className={`layout-preset-card ${active === layout.id ? "active" : ""}`} onClick={() => setActive(layout.id)}><div className={`layout-preview columns-${layout.columns}`}><div className="layout-preview-head" /><div className="layout-preview-deck" /><div className="layout-preview-image" /><div className="layout-preview-copy" /><div className="layout-preview-copy short" /><div className="layout-preview-accent" /></div><div className="layout-card-copy"><div className="layout-card-top"><span>{layout.category}</span><strong>{layout.character}</strong></div><h2>{layout.name}</h2><p>{layout.description}</p><div className="layout-specs"><span>{layout.columns === 3 ? <Columns3 size={13} /> : layout.columns === 2 ? <Columns2 size={13} /> : <Grid2X2 size={13} />} {layout.columns} column{layout.columns > 1 ? "s" : ""}</span><span><LayoutTemplate size={13} /> Image {layout.imageRatio}</span></div><div className="layout-editability">Article preset · fully editable</div></div></article>)}</section>
     </main>
   );
 }

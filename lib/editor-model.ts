@@ -1,5 +1,6 @@
 export type IssueStatus = "draft" | "review" | "published";
 export type PublicationVisibility = "public" | "unlisted" | "private";
+export type ArticleWorkflowStatus = "draft" | "editing" | "review" | "approved";
 export type PageKind = "cover" | "toc" | "article";
 export type BlockType =
   | "headline"
@@ -19,6 +20,7 @@ export type CoverAssetKind = "front" | "wrap";
 export type CoverTextAlign = "left" | "center" | "right";
 export type CoverOverlayType = "none" | "solid" | "gradient";
 export type PaletteSource = "theme" | "cover" | "custom";
+export type BlockTextStyle = "default" | "subheading";
 
 export type FrameGeometry = {
   x: number;
@@ -28,6 +30,13 @@ export type FrameGeometry = {
   rotation: number;
   zIndex: number;
   locked: boolean;
+};
+
+export type LayoutBlockSettings = {
+  hidden: boolean;
+  span: 1 | 2 | 3;
+  locked: boolean;
+  textStyle?: BlockTextStyle;
 };
 
 export type ImagePlacement = {
@@ -107,6 +116,7 @@ export type StoryBlock = {
   focalPoint?: { x: number; y: number };
   placement?: ImagePlacement;
   frame?: FrameGeometry;
+  layout?: LayoutBlockSettings;
 };
 
 export type Article = {
@@ -132,6 +142,10 @@ export type IssuePage = {
   order: number;
 };
 
+export type EditorialWorkflowSettings = {
+  articleStatuses?: Record<string, ArticleWorkflowStatus>;
+};
+
 export type ProductionSettings = {
   pageSize: "A4" | "A5" | "US Letter" | "Square 210" | "Custom";
   orientation: "portrait" | "landscape";
@@ -139,6 +153,7 @@ export type ProductionSettings = {
   safeMargin: number;
   gutter: number;
   baseline: number;
+  editorialWorkflow?: EditorialWorkflowSettings;
 };
 
 export type Issue = {
@@ -210,6 +225,7 @@ export const defaultProductionSettings: ProductionSettings = {
   safeMargin: 12,
   gutter: 6,
   baseline: 12,
+  editorialWorkflow: { articleStatuses: {} },
 };
 
 export const defaultImagePlacement: ImagePlacement = {

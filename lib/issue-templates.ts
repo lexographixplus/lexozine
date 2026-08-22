@@ -1,4 +1,5 @@
 import { Article, Issue, StoryBlock, createId, defaultProductionSettings, defaultTypographySettings } from "./editor-model";
+import { setEditorsNoteArticleId } from "./editors-note";
 import { defaultPaletteForTheme } from "./magazine-design";
 
 function block(type: StoryBlock["type"], content: string, order: number): StoryBlock {
@@ -29,14 +30,60 @@ function article(title: string, layout: Article["layout"], theme: Article["theme
   };
 }
 
+function editorsNoteArticle(theme: Article["theme"]): Article {
+  const now = new Date().toISOString();
+  return {
+    id: createId("article"),
+    title: "Editor's Note",
+    slug: "editors-note",
+    category: "Editorial",
+    byline: "Lexozine Editorial",
+    readTime: "3 min read",
+    layout: "essay",
+    columns: 1,
+    theme,
+    blocks: [
+      block("headline", "A note from the editor", 0),
+      block("deck", "Every issue begins with a point of view — a short invitation into the stories, people and ideas that follow.", 1),
+      block("body", "Welcome to this sample Lexozine edition. This opening note is a real editable article, not issue metadata. In your own publication, use this space to introduce the issue, frame its theme and speak directly to readers before they move into the main editorial sequence.", 2),
+    ],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function createBlankIssue(): Issue {
+  const now = new Date().toISOString();
+  return {
+    id: createId("issue"),
+    title: "Untitled Issue",
+    number: "01",
+    editionDate: new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date()),
+    status: "draft",
+    visibility: "private",
+    description: "",
+    theme: "editorial",
+    coverLines: [],
+    palette: defaultPaletteForTheme("editorial"),
+    pages: [],
+    articles: [],
+    production: { ...defaultProductionSettings },
+    typography: { ...defaultTypographySettings },
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = "editorial"): Issue {
   const now = new Date().toISOString();
   const theme = kind === "culture" ? "cultural" : kind === "minimal" ? "minimal" : "editorial";
-  const articles = [
+  const editorsNote = editorsNoteArticle(theme);
+  const featureArticles = [
     article(kind === "culture" ? "The Shape of Memory" : "The City After Rain", "feature", theme, 0),
     article(kind === "minimal" ? "A Quiet Practice" : "New African Forms", "essay", theme, 1),
     article("The Working Studio", "interview", theme, 2),
   ];
+  const articles = [editorsNote, ...featureArticles];
   const title = kind === "culture" ? "Living Archives" : kind === "minimal" ? "Quiet Forms" : "New Voices";
   const coverLines = [
     "Designing the next African visual language",
@@ -44,7 +91,7 @@ export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = 
     "Independent voices worth reading",
   ];
 
-  return {
+  const issue: Issue = {
     id: createId("issue"),
     title,
     number: "01",
@@ -58,7 +105,7 @@ export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = 
       mode: "generated",
       templateId: "cover-editorial",
       masthead: "LEXOZINE",
-      mainHeadline: articles[0]?.title ?? title,
+      mainHeadline: featureArticles[0]?.title ?? title,
       deck: "A modern editorial issue created in Lexozine Studio.",
       lines: coverLines,
       textAlign: "left",
@@ -86,6 +133,8 @@ export function createIssueTemplate(kind: "editorial" | "culture" | "minimal" = 
     createdAt: now,
     updatedAt: now,
   };
+
+  return setEditorsNoteArticleId(issue, editorsNote.id);
 }
 
 export const templateCatalog = [

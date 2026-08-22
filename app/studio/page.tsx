@@ -4,21 +4,26 @@ import { redirect } from "next/navigation";
 import StudioWorkspace from "@/components/studio-workspace";
 import { auth, authConfigured } from "@/lib/auth/server";
 import "../auth/auth.css";
+import "./composer.css";
 
 export const dynamic = "force-dynamic";
 
-export default async function StudioPage() {
+export default async function StudioPage({ searchParams }: { searchParams: Promise<{ legacy?: string; issue?: string }> }) {
   if (!authConfigured) redirect("/auth/setup-required");
 
+  const query = await searchParams;
   const { data: session } = await auth.getSession();
 
   if (session?.user) {
-    return (
-      <main className="studio-authenticated-shell">
-        <StudioWorkspace />
-        <div className="studio-authenticated-badge">Private studio · authenticated</div>
-      </main>
-    );
+    if (query.legacy === "1") {
+      return (
+        <main className="studio-authenticated-shell">
+          <StudioWorkspace />
+          <div className="studio-authenticated-badge">Legacy full-spread studio · authenticated</div>
+        </main>
+      );
+    }
+    redirect("/issues");
   }
 
   return (
@@ -36,7 +41,7 @@ export default async function StudioPage() {
           <span className="lexostudio-auth-kicker">Editorial workspace</span>
           <h1>Create publications worth reading.</h1>
           <p>
-            Design, structure, review and publish magazine editions from one focused editorial workspace.
+            Organise issues, edit articles, shape layouts, review and publish magazine editions from one focused workspace.
           </p>
         </div>
 
@@ -51,7 +56,7 @@ export default async function StudioPage() {
           <div className="lexostudio-auth-panel-header">
             <span>Private access</span>
             <h2>Welcome back.</h2>
-            <p>Sign in to continue to the LexoStudio publishing workspace.</p>
+            <p>Sign in to continue to the LexoStudio editorial publishing workspace.</p>
           </div>
           <div className="lexostudio-auth-card">
             <AuthView path="sign-in" />
