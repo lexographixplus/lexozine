@@ -1,0 +1,4 @@
+.print-composed-page{height:auto;min-height:297mm;overflow:visible;break-inside:auto;page-break-inside:auto}
+.print-composer-body{break-inside:auto;page-break-inside:auto}
+.print-composer-body p,.print-composer-body ul,.print-composer-body ol{break-inside:auto;page-break-inside:auto}
+@media print{.print-composed-page{height:auto;min-height:297mm;overflow:visible}.print-composer-body{break-inside:auto;page-break-inside:auto}}
