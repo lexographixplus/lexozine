@@ -1,0 +1,6 @@
+.story-poetry-long{max-width:1380px}
+.story-poetry-long .edition-composer-grid{max-width:1100px}
+.story-poetry-long .edition-composer-body{max-width:none;column-count:2;column-gap:clamp(42px,6vw,88px);column-fill:balance;orphans:3;widows:3}
+.story-poetry-long .edition-composer-body p{break-inside:avoid-column}
+.story-poetry-long .edition-composer-body br{break-after:auto}
+@media(max-width:850px){.story-poetry-long .edition-composer-grid{max-width:780px}.story-poetry-long .edition-composer-body{column-count:1;column-gap:0;max-width:660px}}
