@@ -2,6 +2,7 @@ import PrintEdition from "@/components/print-edition";
 import { getIssue, listIssues } from "@/lib/server/issue-repository";
 import "./print.css";
 import "./pagination.css";
+import "./professional.css";
 
 export const dynamic = "force-dynamic";
 
