@@ -149,7 +149,11 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
       if (Number.isFinite(savedPosition) && savedPosition > 0) setLastPosition(Math.min(savedPosition, 100));
     } catch {}
     setPreferencesReady(true);
+  }, [issue.id]);
 
+  useEffect(() => {
+    if (readerExperience !== "continuous") return;
+    const positionKey = `lexozine-reader-position:${issue.id}`;
     function updateProgress() {
       const total = document.documentElement.scrollHeight - window.innerHeight;
       const next = total > 0 ? Math.min(100, Math.max(0, Math.round((window.scrollY / total) * 100))) : 0;
@@ -160,15 +164,13 @@ export default function DigitalEdition({ initialIssue }: { initialIssue?: Issue 
       }
     }
 
-    if (readerExperience === "continuous") {
-      updateProgress();
-      window.addEventListener("scroll", updateProgress, { passive: true });
-      window.addEventListener("resize", updateProgress);
-      return () => {
-        window.removeEventListener("scroll", updateProgress);
-        window.removeEventListener("resize", updateProgress);
-      };
-    }
+    updateProgress();
+    window.addEventListener("scroll", updateProgress, { passive: true });
+    window.addEventListener("resize", updateProgress);
+    return () => {
+      window.removeEventListener("scroll", updateProgress);
+      window.removeEventListener("resize", updateProgress);
+    };
   }, [issue.id, readerExperience]);
 
   useEffect(() => {
