@@ -7,6 +7,7 @@ import { getPublicIssueBySlug } from "@/lib/server/issue-repository";
 import "../preview/preview.css";
 import "../preview/preview-v2.css";
 import "../preview/poetry-columns.css";
+import "../preview/reader-layouts.css";
 
 export const dynamic = "force-dynamic";
 

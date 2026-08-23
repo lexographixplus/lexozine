@@ -1,0 +1,43 @@
+/* Editorial reading modes: the Studio's layout presets stay flexible, while each
+   story type receives a distinct reading rhythm in the public edition. */
+.story-layout-feature .edition-composer-grid{max-width:1320px;gap:clamp(26px,4vw,62px)}
+.story-layout-feature .edition-composer-headline{max-width:15ch;font-size:clamp(54px,8.2vw,118px);line-height:.86}
+.story-layout-feature .edition-composer-deck{max-width:760px;font-size:clamp(20px,2.35vw,31px)}
+.story-layout-feature .edition-composer-body{max-width:44ch;font-size:clamp(16px,1.3vw,19px)}
+.story-layout-feature .edition-composer-image img{height:min(58vw,760px)}
+.story-layout-feature .edition-composer-quote{align-self:center}
+
+.story-layout-essay{max-width:1360px;margin:auto}
+.story-layout-essay .edition-composed-head{max-width:1040px}
+.story-layout-essay .edition-composer-grid{max-width:1040px;gap:clamp(24px,3.5vw,54px)}
+.story-layout-essay .edition-composer-headline{max-width:16ch;font-size:clamp(48px,6.3vw,90px);line-height:.9}
+.story-layout-essay .edition-composer-deck{max-width:660px;font-family:var(--issue-display-family,var(--font-display));font-style:italic}
+.story-layout-essay .edition-composer-body{max-width:40ch;font-family:var(--issue-body-family,Georgia,serif);font-size:clamp(17px,1.45vw,21px);line-height:var(--issue-leading,1.82)}
+.story-layout-essay .edition-composer-quote{margin:clamp(10px,2vw,28px) 0;max-width:18ch}
+.story-layout-essay .edition-composer-image{align-self:start}
+
+.story-layout-interview{position:relative}
+.story-layout-interview::before{content:"";position:absolute;top:0;left:8vw;right:8vw;border-top:4px solid var(--edition-accent)}
+.story-layout-interview .edition-composer-grid{max-width:1260px;gap:clamp(24px,3.5vw,54px)}
+.story-layout-interview .edition-composer-headline{max-width:18ch;font-size:clamp(50px,7vw,100px)}
+.story-layout-interview .edition-composer-deck{max-width:720px}
+.story-layout-interview .edition-composer-body{padding-left:clamp(16px,2vw,30px);border-left:1px solid color-mix(in srgb,currentColor 25%,transparent);font-size:clamp(16px,1.3vw,19px)}
+.story-layout-interview .edition-composer-body strong:first-child{color:var(--edition-accent);font-family:var(--font-sans);font-size:.75em;letter-spacing:.1em;text-transform:uppercase}
+.story-layout-interview .edition-composer-image img{height:min(62vw,820px)}
+.story-layout-interview .edition-composer-sidebar{align-self:start}
+
+.story-layout-visual{background:color-mix(in srgb,var(--edition-accent) 5%,transparent)}
+.story-layout-visual .edition-composer-grid{max-width:1440px;gap:clamp(12px,1.8vw,30px)}
+.story-layout-visual .edition-composer-headline{max-width:14ch;font-size:clamp(58px,8.5vw,128px)}
+.story-layout-visual .edition-composer-deck{max-width:720px}
+.story-layout-visual .edition-composer-image img{height:min(70vw,920px)}
+.story-layout-visual .edition-composer-caption{padding-top:2px}
+.story-layout-visual .edition-composer-body{max-width:38ch}
+
+@media(max-width:850px){
+  .story-layout-feature .edition-composer-headline,.story-layout-essay .edition-composer-headline,.story-layout-interview .edition-composer-headline,.story-layout-visual .edition-composer-headline{max-width:100%;font-size:clamp(42px,12vw,72px)}
+  .story-layout-feature .edition-composer-body,.story-layout-essay .edition-composer-body,.story-layout-interview .edition-composer-body,.story-layout-visual .edition-composer-body{max-width:100%;font-size:17px}
+  .story-layout-interview::before{left:22px;right:22px}
+  .story-layout-interview .edition-composer-body{padding-left:16px}
+  .story-layout-feature .edition-composer-image img,.story-layout-interview .edition-composer-image img,.story-layout-visual .edition-composer-image img{height:auto;max-height:70vh}
+}
