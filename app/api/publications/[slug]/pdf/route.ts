@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     const requestUrl = new URL(request.url);
     const pdf = await renderPrintPdf({
       origin: requestUrl.origin,
-      printPath: `/print?slug=${encodeURIComponent(issue.publicSlug ?? slug)}`,
+      printPath: `/public-print/${encodeURIComponent(issue.publicSlug ?? slug)}`,
       production: issue.production,
     });
     const inline = requestUrl.searchParams.get("preview") === "1";
