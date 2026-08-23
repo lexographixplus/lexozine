@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 import type { Issue, ProductionSettings } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { defaultProductionSettings } from "@/lib/editor-model";
+import { issueStore } from "@/lib/issue-store";
 
-const ISSUES_KEY = "lexozine-issues-v1";
 const BEHAVIOR_KEY = "lexozine-layout-behavior-v1";
 
 export default function ProductionSetup() {
@@ -18,18 +18,24 @@ export default function ProductionSetup() {
   const [saved, setSaved] = useState("Ready");
 
   useEffect(() => {
-    try {
-      const issues = JSON.parse(localStorage.getItem(ISSUES_KEY) ?? "[]") as Issue[];
-      const requestedId = new URLSearchParams(window.location.search).get("issue");
-      const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
-      if (found) {
-        setIssue(found);
-        setSettings(found.production ?? defaultProductionSettings);
+    let alive = true;
+    async function load() {
+      try {
+        const issues = await issueStore?.list() ?? [];
+        const requestedId = new URLSearchParams(window.location.search).get("issue");
+        const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
+        if (found && alive) {
+          setIssue(found);
+          setSettings(found.production ?? defaultProductionSettings);
+        }
+        const behavior = JSON.parse(localStorage.getItem(BEHAVIOR_KEY) ?? "{}") as { showGuides?: boolean; snap?: boolean };
+        if (alive) { setShowGuides(behavior.showGuides ?? true); setSnap(behavior.snap ?? true); }
+      } catch {
+        if (alive) setSaved("Issue settings are temporarily unavailable");
       }
-      const behavior = JSON.parse(localStorage.getItem(BEHAVIOR_KEY) ?? "{}") as { showGuides?: boolean; snap?: boolean };
-      setShowGuides(behavior.showGuides ?? true);
-      setSnap(behavior.snap ?? true);
-    } catch {}
+    }
+    void load();
+    return () => { alive = false; };
   }, []);
 
   function patch(next: Partial<ProductionSettings>) {
@@ -48,20 +54,21 @@ export default function ProductionSetup() {
     });
   }
 
-  function save() {
-    const issues = (() => { try { return JSON.parse(localStorage.getItem(ISSUES_KEY) ?? "[]") as Issue[]; } catch { return []; } })();
+  async function save() {
     const nextIssue = { ...issue, production: settings, updatedAt: new Date().toISOString() };
-    const index = issues.findIndex((item) => item.id === issue.id);
-    if (index >= 0) issues[index] = nextIssue; else issues.unshift(nextIssue);
-    localStorage.setItem(ISSUES_KEY, JSON.stringify(issues));
-    localStorage.setItem(BEHAVIOR_KEY, JSON.stringify({ showGuides, snap }));
-    setIssue(nextIssue);
-    setSaved("Issue and production settings saved");
+    try {
+      const savedIssue = await issueStore?.save(nextIssue) ?? nextIssue;
+      localStorage.setItem(BEHAVIOR_KEY, JSON.stringify({ showGuides, snap }));
+      setIssue(savedIssue);
+      setSaved("Issue and production settings saved");
+    } catch {
+      setSaved("Settings could not be saved. Try again.");
+    }
   }
 
   return (
     <main className="utility-shell">
-      <header className="utility-topbar"><Link href={`/?issue=${issue.id}`} className="secondary-button"><ArrowLeft size={15}/> Back to studio</Link><div className="brand-title">Lexozine <span>Setup</span></div><button className="primary-button" onClick={save}><Check size={15}/> Save setup</button></header>
+      <header className="utility-topbar"><Link href={`/issues/${issue.id}`} className="secondary-button"><ArrowLeft size={15}/> Back to workspace</Link><div className="brand-title">Lexozine <span>Setup</span></div><button className="primary-button" onClick={() => void save()}><Check size={15}/> Save setup</button></header>
       <section className="utility-hero"><span className="eyebrow">Publication configuration</span><h1>Issue & production setup</h1><p>Manage the editorial identity and physical production rules that drive the cover, contents, editor, digital edition and exports.</p></section>
       <section className="utility-grid two-column">
         <div className="utility-panel">

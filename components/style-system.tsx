@@ -6,8 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Issue, TypographyPreset } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { defaultTypographySettings, typographyPresets } from "@/lib/editor-model";
-
-const ISSUES_KEY = "lexozine-issues-v1";
+import { issueStore } from "@/lib/issue-store";
 
 const presetCopy: Record<TypographyPreset, { description: string; display: string; body: string }> = {
   "editorial-serif": { display: "Playfair Display", body: "Georgia", description: "High-contrast feature typography for essays, culture and literary work." },
@@ -25,18 +24,25 @@ export default function StyleSystem() {
   const [status, setStatus] = useState("Ready");
 
   useEffect(() => {
-    try {
-      const issues = JSON.parse(localStorage.getItem(ISSUES_KEY) ?? "[]") as Issue[];
-      const requestedId = new URLSearchParams(window.location.search).get("issue");
-      const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
-      if (!found) return;
-      setIssue(found);
-      const typography = found.typography ?? defaultTypographySettings;
-      setSelected(typography.preset);
-      setTracking(typography.tracking);
-      setLeading(typography.leading);
-      setBodySize(typography.bodySize);
-    } catch {}
+    let alive = true;
+    async function load() {
+      try {
+        const issues = await issueStore?.list() ?? [];
+        const requestedId = new URLSearchParams(window.location.search).get("issue");
+        const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
+        if (!found || !alive) return;
+        setIssue(found);
+        const typography = found.typography ?? defaultTypographySettings;
+        setSelected(typography.preset);
+        setTracking(typography.tracking);
+        setLeading(typography.leading);
+        setBodySize(typography.bodySize);
+      } catch {
+        if (alive) setStatus("Issue settings are temporarily unavailable");
+      }
+    }
+    void load();
+    return () => { alive = false; };
   }, []);
 
   function selectPreset(id: TypographyPreset) {
@@ -47,26 +53,27 @@ export default function StyleSystem() {
     setBodySize(preset.bodySize);
   }
 
-  function save() {
+  async function save() {
     const preset = typographyPresets[selected];
     const nextIssue: Issue = {
       ...issue,
       typography: { preset: selected, displayFamily: preset.displayFamily, bodyFamily: preset.bodyFamily, bodySize, leading, tracking },
       updatedAt: new Date().toISOString(),
     };
-    const issues = (() => { try { return JSON.parse(localStorage.getItem(ISSUES_KEY) ?? "[]") as Issue[]; } catch { return []; } })();
-    const index = issues.findIndex((item) => item.id === nextIssue.id);
-    if (index >= 0) issues[index] = nextIssue; else issues.unshift(nextIssue);
-    localStorage.setItem(ISSUES_KEY, JSON.stringify(issues));
-    setIssue(nextIssue);
-    setStatus("Typography applied to issue");
+    try {
+      const saved = await issueStore?.save(nextIssue) ?? nextIssue;
+      setIssue(saved);
+      setStatus("Typography applied to issue");
+    } catch {
+      setStatus("Typography could not be saved. Try again.");
+    }
   }
 
   const active = useMemo(() => ({ ...typographyPresets[selected], ...presetCopy[selected] }), [selected]);
 
   return (
     <main className="utility-shell">
-      <header className="utility-topbar"><Link href={`/?issue=${issue.id}`} className="secondary-button"><ArrowLeft size={15}/> Back to studio</Link><div className="brand-title">Lexozine <span>Styles</span></div><button className="primary-button" onClick={save}><Check size={15}/> Apply system</button></header>
+      <header className="utility-topbar"><Link href={`/issues/${issue.id}`} className="secondary-button"><ArrowLeft size={15}/> Back to workspace</Link><div className="brand-title">Lexozine <span>Styles</span></div><button className="primary-button" onClick={() => void save()}><Check size={15}/> Apply system</button></header>
       <section className="utility-hero"><span className="eyebrow">Design system</span><h1>Typography & editorial styles</h1><p>Control the typographic voice of <strong>{issue.title}</strong> from one reusable issue-level system.</p></section>
       <section className="utility-grid two-column">
         <div className="utility-panel"><h2>Type presets</h2><div className="preset-list">{(Object.keys(typographyPresets) as TypographyPreset[]).map((id) => <button key={id} className={`preset-card ${selected === id ? "active" : ""}`} onClick={() => selectPreset(id)}><Type size={18}/><div><strong>{typographyPresets[id].label}</strong><span>{presetCopy[id].description}</span><small>{presetCopy[id].display} + {presetCopy[id].body}</small></div></button>)}</div></div>
