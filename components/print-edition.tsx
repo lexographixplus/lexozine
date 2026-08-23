@@ -9,6 +9,14 @@ function classSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+function printImageUrl(url: string | undefined, width = 1600) {
+  if (!url || !url.includes("res.cloudinary.com/") || !url.includes("/upload/")) return url;
+  // The reader continues to use its original editorial assets. The PDF uses a
+  // high-quality, print-appropriate derivative so a long issue does not load
+  // every original PNG into Chromium at once.
+  return url.replace("/upload/", `/upload/f_auto,q_auto:good,w_${width}/`);
+}
+
 function textFromHtml(html: string) {
   return html
     .replace(/<br\s*\/?\s*>/gi, "\n")
@@ -49,7 +57,7 @@ function usesLongProsePrint(article: Article) {
   return characters >= 3000 || minutes >= 4;
 }
 
-function Frame({ block }: { block: StoryBlock }) {
+function Frame({ block, optimizeImages = false }: { block: StoryBlock; optimizeImages?: boolean }) {
   if (block.layout?.hidden) return null;
   const frame = block.frame ?? defaultFrameFor(block.type, block.order);
   const style: CSSProperties = {
@@ -62,19 +70,19 @@ function Frame({ block }: { block: StoryBlock }) {
   };
   if (block.type === "image" && block.imageUrl) {
     const placement = block.placement ?? defaultImagePlacement;
-    return <figure className="print-frame print-image" style={style}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={block.imageUrl} alt={placement.alt} style={{objectFit:placement.fit,objectPosition:`${placement.focalX}% ${placement.focalY}%`}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</figure>;
+    return <figure className="print-frame print-image" style={style}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={optimizeImages ? printImageUrl(block.imageUrl) : block.imageUrl} alt={placement.alt} style={{objectFit:placement.fit,objectPosition:`${placement.focalX}% ${placement.focalY}%`}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</figure>;
   }
   const presentation = block.type === "body" && block.layout?.textStyle === "subheading" ? "subheading" : block.type;
   return <div className={`print-frame print-${presentation}`} style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
 }
 
-function ComposedBlock({ block, columns }: { block: StoryBlock; columns: 1 | 2 | 3 }) {
+function ComposedBlock({ block, columns, optimizeImages = false }: { block: StoryBlock; columns: 1 | 2 | 3; optimizeImages?: boolean }) {
   const settings = { ...defaultLayoutSettings(block.type, columns), ...(block.layout ?? {}) };
   if (settings.hidden) return null;
   const span = Math.max(1, Math.min(columns, settings.span));
   const style: CSSProperties = { gridColumn: `span ${span}` };
   const placement = block.placement ?? defaultImagePlacement;
-  if (block.type === "image") return <figure className="print-composer-block print-composer-image" style={style}>{block.imageUrl ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={block.imageUrl} alt={placement.alt} style={{objectFit:placement.fit,objectPosition:`${placement.focalX}% ${placement.focalY}%`}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</> : null}</figure>;
+  if (block.type === "image") return <figure className="print-composer-block print-composer-image" style={style}>{block.imageUrl ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={optimizeImages ? printImageUrl(block.imageUrl) : block.imageUrl} alt={placement.alt} style={{objectFit:placement.fit,objectPosition:`${placement.focalX}% ${placement.focalY}%`}}/>{placement.caption?<figcaption>{placement.caption}</figcaption>:null}</> : null}</figure>;
   if (block.type === "headline") return <div className="print-composer-block print-composer-headline" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
   if (block.type === "deck") return <div className="print-composer-block print-composer-deck" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
   if (block.type === "body" && block.layout?.textStyle === "subheading") return <div className="print-composer-block print-composer-subheading" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
@@ -84,7 +92,7 @@ function ComposedBlock({ block, columns }: { block: StoryBlock; columns: 1 | 2 |
   return <div className="print-composer-block print-composer-body" style={style} dangerouslySetInnerHTML={{__html:block.content}}/>;
 }
 
-export default function PrintEdition({ issue }: { issue: Issue }) {
+export default function PrintEdition({ issue, optimizeImages = false }: { issue: Issue; optimizeImages?: boolean }) {
   const palette = resolveIssuePalette(issue);
   const cover = resolveCoverDesign(issue);
   const activeCoverAsset = resolveActiveCoverAsset(issue);
@@ -101,7 +109,7 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
   const stories = orderedArticles.filter((article) => article.id !== editorsNote?.id);
   const contributors = [...new Set(stories.map((article) => article.byline.trim()).filter(Boolean))];
   const coverPhotoStyle: CSSProperties | undefined = coverImageUrl ? {
-    backgroundImage: `url(${coverImageUrl})`,
+    backgroundImage: `url(${optimizeImages ? printImageUrl(coverImageUrl, 1800) : coverImageUrl})`,
     backgroundSize: activeCoverAsset?.kind === "wrap" ? "200% 100%" : cover.heroFit,
     backgroundPosition: activeCoverAsset?.kind === "wrap" ? "right center" : `${cover.heroFocalX}% ${cover.heroFocalY}%`,
     backgroundRepeat: "no-repeat",
@@ -122,7 +130,7 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
     {editorsNote ? (() => {
       const articleTheme=themeTokens[editorsNote.theme];
       const ordered=[...editorsNote.blocks].sort((a,b)=>a.order-b.order);
-      return <section key={editorsNote.id} className="print-page print-composed-page print-editors-note print-category-editorial" style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>Editor&apos;s Note</span><span>EN</span></div><div className="print-composed-meta"><span>Editor&apos;s Note</span><strong>{editorsNote.byline} · {editorsNote.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${editorsNote.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={editorsNote.columns}/>)}</div></section>;
+      return <section key={editorsNote.id} className="print-page print-composed-page print-editors-note print-category-editorial" style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>Editor&apos;s Note</span><span>EN</span></div><div className="print-composed-meta"><span>Editor&apos;s Note</span><strong>{editorsNote.byline} · {editorsNote.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${editorsNote.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={editorsNote.columns} optimizeImages={optimizeImages}/>)}</div></section>;
     })() : null}
     {stories.map((article,index)=>{
       const hasFrames=article.blocks.some((block)=>block.frame);
@@ -131,8 +139,8 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
       const presetClass=`print-category-${classSlug(article.category)}`;
       const longPoetryClass=usesLongPoetryPrint(article) ? " print-poetry-long" : "";
       const longProseClass=usesLongProsePrint(article) ? " print-prose-long" : "";
-      if(hasFrames) return <section key={article.id} className={`print-page print-frame-page ${presetClass}${longPoetryClass}${longProseClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div>{ordered.map((block)=><Frame key={block.id} block={block}/>)}</section>;
-      return <section key={article.id} className={`print-page print-composed-page ${presetClass}${longPoetryClass}${longProseClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div><div className="print-composed-meta"><span>{article.category}</span><strong>{article.byline} · {article.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${article.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={article.columns}/>)}</div></section>;
+      if(hasFrames) return <section key={article.id} className={`print-page print-frame-page ${presetClass}${longPoetryClass}${longProseClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div>{ordered.map((block)=><Frame key={block.id} block={block} optimizeImages={optimizeImages}/>)}</section>;
+      return <section key={article.id} className={`print-page print-composed-page ${presetClass}${longPoetryClass}${longProseClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div><div className="print-composed-meta"><span>{article.category}</span><strong>{article.byline} · {article.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${article.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={article.columns} optimizeImages={optimizeImages}/>)}</div></section>;
     })}
     <section className="print-page print-colophon"><div><span className="print-colophon-label">Colophon</span><div className="print-colophon-masthead">{cover.masthead}</div></div><div className="print-colophon-copy"><p><strong>{issue.title}</strong> is a fixed-page PDF edition, composed independently for A4 reading and print.</p><p>Published by LexoGraphix Plus · Issue {issue.number} · {issue.editionDate}</p></div><div><span className="print-colophon-label">Contributors</span><p className="print-colophon-contributors">{contributors.join(" · ") || "Contributor credits forthcoming"}</p></div></section>
   </main>;
