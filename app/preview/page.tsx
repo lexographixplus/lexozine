@@ -5,6 +5,7 @@ import "./preview.css";
 import "./preview-v2.css";
 import "./poetry-columns.css";
 import "./reader-layouts.css";
+import "./literary-reader.css";
 import "../issues/release-07.css";
 
 export const dynamic = "force-dynamic";
