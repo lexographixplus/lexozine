@@ -1,10 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
 import { NextResponse } from "next/server";
-import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
 import { auth } from "@/lib/auth/server";
 import { getIssue } from "@/lib/server/issue-repository";
+import { fileSafe, renderPrintPdf } from "@/lib/server/print-pdf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,16 +12,6 @@ async function currentUser() {
   return result?.user ?? result?.data?.user ?? result?.data?.session?.user ?? null;
 }
 
-function fileSafe(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "lexozine";
-}
-
-async function chromiumExecutablePath() {
-  const tracedBin = path.join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin");
-  if (fs.existsSync(tracedBin)) return chromium.executablePath(tracedBin);
-  return chromium.executablePath();
-}
-
 export async function GET(request: Request) {
   if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const requestUrl = new URL(request.url);
@@ -33,41 +20,13 @@ export async function GET(request: Request) {
   const issue = await getIssue(issueId);
   if (!issue) return NextResponse.json({ error: "Issue not found" }, { status: 404 });
 
-  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
   try {
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: { width: 1440, height: 1800, deviceScaleFactor: 1 },
-      executablePath: await chromiumExecutablePath(),
-      headless: "shell",
-    });
-
-    const page = await browser.newPage();
     const origin = requestUrl.origin;
-    const cookie = request.headers.get("cookie") ?? "";
-    await page.setRequestInterception(true);
-    page.on("request", (intercepted) => {
-      const target = intercepted.url();
-      if (cookie && target.startsWith(origin)) {
-        void intercepted.continue({ headers: { ...intercepted.headers(), cookie } });
-      } else {
-        void intercepted.continue();
-      }
-    });
-
-    const printUrl = `${origin}/print?issue=${encodeURIComponent(issue.id)}`;
-    const response = await page.goto(printUrl, { waitUntil: "networkidle0", timeout: 45000 });
-    if (!response?.ok()) throw new Error(`Print composition returned ${response?.status() ?? "no response"}`);
-    await page.emulateMediaType("print");
-
-    const size = issue.production?.pageSize ?? "A4";
-    const format = size === "US Letter" ? "letter" : size === "A5" ? "a5" : "a4";
-    const pdf = await page.pdf({
-      format,
-      landscape: issue.production?.orientation === "landscape",
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
+    const pdf = await renderPrintPdf({
+      origin,
+      printPath: `/print?issue=${encodeURIComponent(issue.id)}`,
+      production: issue.production,
+      cookie: request.headers.get("cookie") ?? "",
     });
 
     return new Response(Buffer.from(pdf), {
@@ -83,7 +42,5 @@ export async function GET(request: Request) {
       { error: "PDF generation failed", detail: error instanceof Error ? error.message : "Unknown PDF error" },
       { status: 500 },
     );
-  } finally {
-    if (browser) await browser.close();
   }
 }

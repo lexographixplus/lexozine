@@ -91,7 +91,15 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
   const coverImageUrl = resolveCoverImageUrl(issue);
   const importedCover = cover.mode === "imported" && Boolean(coverImageUrl);
   const editorsNote = findEditorsNote(issue);
-  const stories = issue.articles.filter((article) => article.id !== editorsNote?.id);
+  const articleById = new Map(issue.articles.map((article) => [article.id, article]));
+  const placedArticles = [...issue.pages]
+    .sort((a, b) => a.order - b.order)
+    .flatMap((page) => page.articleId ? [articleById.get(page.articleId)] : [])
+    .filter((article): article is Article => Boolean(article));
+  const placedIds = new Set(placedArticles.map((article) => article.id));
+  const orderedArticles = [...placedArticles, ...issue.articles.filter((article) => !placedIds.has(article.id))];
+  const stories = orderedArticles.filter((article) => article.id !== editorsNote?.id);
+  const contributors = [...new Set(stories.map((article) => article.byline.trim()).filter(Boolean))];
   const coverPhotoStyle: CSSProperties | undefined = coverImageUrl ? {
     backgroundImage: `url(${coverImageUrl})`,
     backgroundSize: activeCoverAsset?.kind === "wrap" ? "200% 100%" : cover.heroFit,
@@ -126,5 +134,6 @@ export default function PrintEdition({ issue }: { issue: Issue }) {
       if(hasFrames) return <section key={article.id} className={`print-page print-frame-page ${presetClass}${longPoetryClass}${longProseClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div>{ordered.map((block)=><Frame key={block.id} block={block}/>)}</section>;
       return <section key={article.id} className={`print-page print-composed-page ${presetClass}${longPoetryClass}${longProseClass}`} style={{"--print-paper":articleTheme.paper,"--print-ink":articleTheme.ink,"--print-accent":articleTheme.accent} as CSSProperties}><div className="print-running"><span>{cover.masthead}</span><span>{article.category}</span><span>{String(index+1).padStart(2,"0")}</span></div><div className="print-composed-meta"><span>{article.category}</span><strong>{article.byline} · {article.readTime}</strong></div><div className="print-composer-grid" style={{gridTemplateColumns:`repeat(${article.columns},minmax(0,1fr))`}}>{ordered.map((block)=><ComposedBlock key={block.id} block={block} columns={article.columns}/>)}</div></section>;
     })}
+    <section className="print-page print-colophon"><div><span className="print-colophon-label">Colophon</span><div className="print-colophon-masthead">{cover.masthead}</div></div><div className="print-colophon-copy"><p><strong>{issue.title}</strong> is a fixed-page PDF edition, composed independently for A4 reading and print.</p><p>Published by LexoGraphix Plus · Issue {issue.number} · {issue.editionDate}</p></div><div><span className="print-colophon-label">Contributors</span><p className="print-colophon-contributors">{contributors.join(" · ") || "Contributor credits forthcoming"}</p></div></section>
   </main>;
 }
