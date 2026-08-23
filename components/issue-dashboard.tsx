@@ -4,12 +4,11 @@ import { ArrowRight, BookOpen, CalendarDays, Copy, ExternalLink, FilePlus2, Glob
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createBlankIssue, createIssueTemplate, templateCatalog } from "@/lib/issue-templates";
+import type { IssueTemplateKind } from "@/lib/issue-templates";
 import type { Issue, PublicationVisibility } from "@/lib/editor-model";
 import { createId } from "@/lib/editor-model";
 import { issueStore } from "@/lib/issue-store";
 import { ensurePublicationSlug, publicIssueUrl } from "@/lib/publication";
-
-type IssueTemplateKind = "editorial" | "culture" | "minimal";
 
 export default function IssueDashboard() {
   const [issues, setIssues] = useState<Issue[]>([]);
