@@ -23,6 +23,7 @@ const RESERVED_PUBLICATION_SLUGS = new Set([
   "export",
   "preview",
   "print",
+  "public-print",
   "_next",
   "favicon-ico",
   "robots-txt",
