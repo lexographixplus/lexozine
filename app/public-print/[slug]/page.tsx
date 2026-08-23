@@ -12,5 +12,5 @@ export default async function PublicPrintPage({ params }: { params: Promise<{ sl
   const { slug } = await params;
   const issue = await getPublicIssueBySlug(decodeURIComponent(slug));
   if (!issue) notFound();
-  return <PrintEdition issue={issue} />;
+  return <PrintEdition issue={issue} optimizeImages />;
 }

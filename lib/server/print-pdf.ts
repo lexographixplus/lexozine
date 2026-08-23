@@ -24,9 +24,12 @@ export async function renderPrintPdf({ origin, printPath, production, cookie }: 
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
 
   try {
+    // A print export does not use WebGL. Disabling SwiftShader avoids extracting
+    // and running an extra graphics stack inside the constrained function.
+    chromium.setGraphicsMode = false;
     browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: { width: 1440, height: 1800, deviceScaleFactor: 1 },
+      args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
+      defaultViewport: { width: 1280, height: 960, deviceScaleFactor: 1 },
       executablePath: await chromiumExecutablePath(),
       headless: "shell",
     });
@@ -55,6 +58,8 @@ export async function renderPrintPdf({ origin, printPath, production, cookie }: 
       margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
     });
   } finally {
-    if (browser) await browser.close();
+    // Chromium may already have stopped after an unsuccessful export. Do not
+    // turn that into a second unhandled rejection while responding to the user.
+    if (browser) await browser.close().catch(() => undefined);
   }
 }
