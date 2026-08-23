@@ -16,6 +16,12 @@
 .template-preview > small { font-size: 7px; text-transform: uppercase; letter-spacing: .1em; }
 .template-culture .template-preview { background: #aa3c32; color: #f6e7d6; }
 .template-minimal .template-preview { background: #f7f6f2; color: #111; }
+.template-literary .template-preview { background: linear-gradient(145deg,#24201d 0 52%,#d7b48b 52%); color: #fff7ed; }
+.template-literary .template-preview > strong { align-self: flex-start; font-style: italic; }
+.template-youth .template-preview { background: #eb4c2f; color: #fff8ef; }
+.template-youth .template-preview > strong { font-family: var(--font-sans); font-weight: 900; letter-spacing: -.12em; }
+.template-partner .template-preview { background: #1b5fbf; color: #f5f8ff; }
+.template-partner .template-preview > span { font-family: var(--font-sans); letter-spacing: .12em; font-size: 10px; }
 .template-card > div:nth-child(2) > strong { font-size: 12px; }
 .template-card p { margin: 7px 0 0; color: #868d93; font-size: 9px; line-height: 1.5; }
 .dashboard-toolbar { margin: 0 6vw 22px; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
