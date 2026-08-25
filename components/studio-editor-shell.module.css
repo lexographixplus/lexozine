@@ -1,0 +1,220 @@
+.shell {
+  min-height: 100dvh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #eeeae4;
+  background: #0e1012;
+  font-family: var(--font-sans);
+}
+
+.topbar {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(280px, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 0 16px;
+  border-bottom: 1px solid #282c30;
+  background: rgba(16, 18, 20, .97);
+  z-index: 10;
+}
+
+.brand,
+.actions,
+.documentTitle,
+.saveState {
+  display: flex;
+  align-items: center;
+}
+
+.brand { gap: 10px; min-width: 0; }
+
+.mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -.04em;
+  background: linear-gradient(145deg, #d78554, #7e3f2f);
+}
+
+.brandTitle {
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -.025em;
+}
+
+.brandTitle span {
+  color: #d58a60;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
+}
+
+.brandSubtitle {
+  margin-top: 2px;
+  color: #7c858d;
+  font-size: 9px;
+}
+
+.documentTitle {
+  min-width: 0;
+  justify-self: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #292d31;
+  border-radius: 7px;
+  background: #171a1d;
+  color: #aeb4b8;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.documentTitle strong {
+  overflow: hidden;
+  max-width: 20vw;
+  color: #e5e0d9;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+
+.documentTitle i { color: #596167; font-style: normal; }
+.documentTitle em { color: #c98057; font-style: normal; }
+
+.actions {
+  justify-self: end;
+  gap: 6px;
+}
+
+.saveState {
+  gap: 6px;
+  padding: 0 3px;
+  color: #899197;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.saveState i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #72b68d;
+}
+
+.secondaryAction,
+.primaryAction {
+  height: 33px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid #30353a;
+  border-radius: 7px;
+  color: #c7c8c5;
+  background: #191c1f;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.secondaryAction:hover { border-color: #51585e; color: #fff; }
+.primaryAction { border-color: #e7e1d7; color: #1a1917; background: #e7e1d7; }
+.primaryAction:hover { background: #fffaf1; }
+
+.workspace {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 68px 244px minmax(0, 1fr) 296px;
+}
+
+.navigator,
+.inspector {
+  min-height: 0;
+  overflow: auto;
+  background: #131517;
+}
+
+.navigator {
+  border-right: 1px solid #282c2f;
+  padding: 15px 13px;
+}
+
+.inspector {
+  border-left: 1px solid #282c2f;
+  padding: 15px 13px;
+}
+
+.canvas {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #1a1d20;
+}
+
+.canvasToolbar {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid #2b3034;
+  color: #899197;
+}
+
+.canvasScroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.statusbar {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-top: 1px solid #272b2f;
+  background: #111315;
+  color: #778087;
+  font-size: 9px;
+}
+
+@media (max-width: 1200px) {
+  .workspace { grid-template-columns: 62px 210px minmax(0, 1fr) 264px; }
+  .topbar { grid-template-columns: minmax(160px, 1fr) auto minmax(220px, 1fr); }
+  .secondaryAction { padding: 0 8px; }
+}
+
+@media (max-width: 900px) {
+  .workspace { grid-template-columns: 58px minmax(0, 1fr); }
+  .navigator,
+  .inspector { display: none; }
+  .documentTitle { justify-self: start; }
+  .documentTitle em { display: none; }
+  .actions .secondaryAction { display: none; }
+}
+
+@media (max-width: 620px) {
+  .topbar { grid-template-columns: 1fr auto; padding: 0 10px; }
+  .documentTitle { display: none; }
+  .brandSubtitle,
+  .saveState { display: none; }
+  .primaryAction { width: 34px; padding: 0; font-size: 0; }
+  .primaryAction svg { width: 15px; height: 15px; }
+  .workspace { grid-template-columns: 1fr; }
+  .workspace :global(.rail) { display: none; }
+}
