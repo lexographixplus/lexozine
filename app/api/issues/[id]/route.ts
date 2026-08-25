@@ -12,19 +12,21 @@ async function currentUser() {
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const issue = await getIssue(id);
+  const issue = await getIssue(id, user.id);
   if (!issue) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ issue });
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (request.headers.get("x-lexozine-write-generation") !== WRITE_GENERATION) {
     return NextResponse.json({ error: "This Lexozine tab is out of date. Refresh Studio before making changes." }, { status: 409 });
   }
   const { id } = await params;
-  await removeIssue(id);
+  await removeIssue(id, user.id);
   return new Response(null, { status: 204 });
 }
