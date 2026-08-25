@@ -77,9 +77,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     for (const page of imported.pages) {
       const svg = replaceAssetUrls(page.svg, assetUrls);
       const result = await uploadBuffer(Buffer.from(svg, "utf8"), {
-        resource_type: "raw",
+        resource_type: "image",
         folder: `${folder}/pages`,
-        public_id: `page-${String(page.number).padStart(4, "0")}.svg`,
+        public_id: `page-${String(page.number).padStart(4, "0")}`,
         overwrite: false,
         filename_override: `page-${String(page.number).padStart(4, "0")}.svg`,
       });
