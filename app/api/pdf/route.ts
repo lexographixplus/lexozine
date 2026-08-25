@@ -13,11 +13,12 @@ async function currentUser() {
 }
 
 export async function GET(request: Request) {
-  if (!(await currentUser())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const requestUrl = new URL(request.url);
   const issueId = requestUrl.searchParams.get("issue");
   if (!issueId) return NextResponse.json({ error: "Issue id is required" }, { status: 400 });
-  const issue = await getIssue(issueId);
+  const issue = await getIssue(issueId, user.id);
   if (!issue) return NextResponse.json({ error: "Issue not found" }, { status: 404 });
 
   try {
