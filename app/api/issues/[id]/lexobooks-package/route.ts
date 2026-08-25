@@ -17,7 +17,7 @@ async function currentUser() {
   return result?.user ?? result?.data?.user ?? result?.data?.session?.user ?? null;
 }
 
-function uploadBuffer(buffer: Buffer, options: Record<string, unknown>) {
+function uploadBuffer(buffer: Buffer, options: any) {
   const cloudinary = getCloudinary();
   return new Promise<any>((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(options, (error, result) => error ? reject(error) : resolve(result));
