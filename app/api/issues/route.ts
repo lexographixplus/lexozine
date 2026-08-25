@@ -22,10 +22,15 @@ async function issueExists(id: string) {
   return (rows as any[]).length > 0;
 }
 
+async function issueOwnedBy(id: string, ownerUserId: string) {
+  const rows = await db()`select id from issues where id=${id}::uuid and owner_user_id=${ownerUserId} limit 1`;
+  return (rows as any[]).length > 0;
+}
+
 export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return NextResponse.json({ issues: await listIssues() });
+  return NextResponse.json({ issues: await listIssues(user.id) });
 }
 
 export async function PUT(request: Request) {
@@ -35,7 +40,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "This Lexozine tab is out of date. Refresh Studio before saving." }, { status: 409 });
   }
   const issue = await request.json() as Issue;
-  if (!(await issueExists(issue.id))) {
+  if (!(await issueOwnedBy(issue.id, user.id))) {
     return NextResponse.json({ error: "This issue was deleted from Studio and cannot be restored by a stale browser copy." }, { status: 410 });
   }
   const saved = await saveIssue(issue, user.id);

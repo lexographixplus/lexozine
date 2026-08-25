@@ -2,6 +2,34 @@ export type IssueStatus = "draft" | "review" | "published";
 export type PublicationVisibility = "public" | "unlisted" | "private";
 export type ArticleWorkflowStatus = "draft" | "editing" | "review" | "approved";
 export type PageKind = "cover" | "toc" | "article";
+
+export type FixedLayoutPage = {
+  number: number;
+  label: string;
+  svgUrl: string;
+  previewUrl?: string;
+  text?: string;
+};
+
+export type LexoBooksEdition = {
+  format: "lexobooks-edition";
+  version: 1;
+  buildId: string;
+  createdAt: string;
+  source: {
+    projectId: string;
+    projectRevision?: string;
+    rendererVersion?: string;
+  };
+  page: {
+    width: number;
+    height: number;
+    unit: "pt" | "mm";
+    readingDirection: "ltr" | "rtl";
+  };
+  pages: FixedLayoutPage[];
+  pdfUrl?: string;
+};
 export type BlockType =
   | "headline"
   | "deck"
@@ -176,6 +204,7 @@ export type Issue = {
   articles: Article[];
   production?: ProductionSettings;
   typography?: TypographySettings;
+  fixedLayout?: LexoBooksEdition;
   createdAt: string;
   updatedAt: string;
 };

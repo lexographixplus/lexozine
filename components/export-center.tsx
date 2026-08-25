@@ -1,8 +1,8 @@
 "use client";
 
-import { Archive, ArrowLeft, CheckCircle2, FileJson, FileText, Globe2, Printer, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Archive, ArrowLeft, CheckCircle2, FileJson, FileText, Globe2, Printer, ShieldCheck, TriangleAlert, Upload } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Issue, StoryBlock } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { issueStore } from "@/lib/issue-store";
@@ -16,6 +16,8 @@ export default function ExportCenter() {
   const [issue, setIssue] = useState<Issue>(() => createIssueTemplate("editorial"));
   const [docxState, setDocxState] = useState("Export editable DOCX");
   const [syncState, setSyncState] = useState("Loading production issue…");
+  const [importState, setImportState] = useState("Import LexoBooks edition");
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -56,6 +58,37 @@ export default function ExportCenter() {
     anchor.download = `lexozine-${issue.number}-${issue.title.toLowerCase().replace(/[^a-z0-9]+/g,"-")}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function importLexoBooksEdition(file: File) {
+    setImportState("Importing edition…");
+    try {
+      const isPackage = file.name.toLowerCase().endsWith(".zip");
+      const response = isPackage
+        ? await (() => {
+            const form = new FormData();
+            form.set("package", file);
+            return fetch("/api/issues/" + encodeURIComponent(issue.id) + "/lexobooks-package", {
+              method: "POST",
+              headers: { "x-lexozine-write-generation": "release-0.7-clean-v2" },
+              body: form,
+            });
+          })()
+        : await fetch("/api/issues/" + encodeURIComponent(issue.id) + "/lexobooks-edition", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-lexozine-write-generation": "release-0.7-clean-v2",
+            },
+            body: JSON.stringify(JSON.parse(await file.text())),
+          });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Edition import failed");
+      setIssue(payload.issue as Issue);
+      setImportState(`${payload.fixedLayout.pages.length} pages imported`);
+    } catch (error) {
+      setImportState(error instanceof Error ? error.message : "Edition import failed");
+    }
   }
 
   async function exportDocx() {
@@ -113,6 +146,7 @@ export default function ExportCenter() {
         <article className="export-card"><div className="export-icon"><Globe2 size={22}/></div><span>Digital edition</span><h2>Web publication</h2><p>Preview the responsive reading experience generated directly from the shared Neon issue and its placed imagery.</p><Link href={`/preview?issue=${issue.id}`}><Globe2 size={15}/>Open digital edition</Link></article>
         <article className="export-card"><div className="export-icon"><FileJson size={22}/></div><span>Archive</span><h2>Issue package</h2><p>Download the full Issue → Article → Block structure, including layout and image-placement metadata.</p><button onClick={downloadPackage}><Archive size={15}/>Download package</button></article>
         <article className="export-card"><div className="export-icon"><FileText size={22}/></div><span>Editable document</span><h2>DOCX export</h2><p>Generate an editable Word document from the structured issue, preserving hierarchy, body copy, decks, pull quotes, image references and captions.</p><button onClick={exportDocx}><FileText size={15}/>{docxState}</button></article>
+        <article className="export-card"><div className="export-icon"><Upload size={22}/></div><span>LexoBooks</span><h2>Fixed-layout edition</h2><p>Import a verified LexoBooks edition manifest to make the art-directed magazine available beside the responsive reader.</p><input ref={importRef} hidden type="file" accept=".zip,application/zip,application/json" onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ""; if (file) void importLexoBooksEdition(file); }}/><button onClick={() => importRef.current?.click()}><Upload size={15}/>{importState}</button></article>
       </section>
 
       <section className="preflight-panel"><div><span className="export-eyebrow">Issue preflight</span><h2>Before final delivery</h2></div><div className="preflight-list">{checks.map((check)=><div key={check.title}>{check.pass?<CheckCircle2 size={17}/>:<TriangleAlert size={17}/>}<div><strong>{check.title}</strong><span>{check.copy}</span></div></div>)}</div></section>

@@ -25,10 +25,13 @@ export function normalizeIssueIds(input: Issue): Issue {
   return { ...input, id: issueId, articles, pages };
 }
 
-export async function listIssues(): Promise<Issue[]> {
+export async function listIssues(ownerUserId?: string): Promise<Issue[]> {
   const sql = db();
+  const issueQuery = ownerUserId
+    ? sql`select * from issues where owner_user_id=${ownerUserId} order by updated_at desc`
+    : sql`select * from issues order by updated_at desc`;
   const [issues, articles, pages, blocks] = await sql.transaction([
-    sql`select * from issues order by updated_at desc`,
+    issueQuery,
     sql`select * from articles order by issue_id, position`,
     sql`select * from issue_pages order by issue_id, position`,
     sql`select b.* from blocks b join articles a on a.id=b.article_id order by a.issue_id, a.position, b.position`,
@@ -102,6 +105,7 @@ export async function listIssues(): Promise<Issue[]> {
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : undefined,
     production: row.production && Object.keys(row.production).length ? row.production : undefined,
     typography: row.typography && Object.keys(row.typography).length ? row.typography : undefined,
+    fixedLayout: row.lexobooks_edition && Object.keys(row.lexobooks_edition).length ? row.lexobooks_edition : undefined,
     pages: pageMap.get(row.id) ?? [],
     articles: articleMap.get(row.id) ?? [],
     createdAt: new Date(row.created_at).toISOString(),
@@ -109,8 +113,8 @@ export async function listIssues(): Promise<Issue[]> {
   })) as Issue[];
 }
 
-export async function getIssue(id: string): Promise<Issue | null> {
-  const issues = await listIssues();
+export async function getIssue(id: string, ownerUserId?: string): Promise<Issue | null> {
+  const issues = await listIssues(ownerUserId);
   return issues.find((issue) => issue.id === id) ?? null;
 }
 
@@ -131,9 +135,9 @@ export async function saveIssue(input: Issue, ownerUserId?: string): Promise<Iss
   const queries: any[] = [];
 
   queries.push(sql`
-    insert into issues (id, owner_user_id, title, issue_number, edition_date, status, description, theme, cover_image_url, cover_image_public_id, cover_lines, cover, palette, public_slug, visibility, published_at, production, typography, created_at, updated_at)
-    values (${issue.id}::uuid, ${ownerUserId ?? null}, ${issue.title}, ${issue.number}, ${issue.editionDate}, ${issue.status}::issue_status, ${issue.description}, ${issue.theme}, ${issue.coverImageUrl ?? null}, ${issue.coverImagePublicId ?? null}, ${JSON.stringify(issue.coverLines)}::jsonb, ${JSON.stringify(issue.cover ?? {})}::jsonb, ${JSON.stringify(issue.palette ?? {})}::jsonb, ${issue.publicSlug ?? null}, ${issue.visibility ?? "private"}, ${issue.publishedAt ?? null}::timestamptz, ${JSON.stringify(issue.production ?? {})}::jsonb, ${JSON.stringify(issue.typography ?? {})}::jsonb, ${issue.createdAt}::timestamptz, ${issue.updatedAt}::timestamptz)
-    on conflict (id) do update set owner_user_id=coalesce(issues.owner_user_id, excluded.owner_user_id), title=excluded.title, issue_number=excluded.issue_number, edition_date=excluded.edition_date, status=excluded.status, description=excluded.description, theme=excluded.theme, cover_image_url=excluded.cover_image_url, cover_image_public_id=excluded.cover_image_public_id, cover_lines=excluded.cover_lines, cover=excluded.cover, palette=excluded.palette, public_slug=excluded.public_slug, visibility=excluded.visibility, published_at=excluded.published_at, production=excluded.production, typography=excluded.typography, updated_at=excluded.updated_at
+    insert into issues (id, owner_user_id, title, issue_number, edition_date, status, description, theme, cover_image_url, cover_image_public_id, cover_lines, cover, palette, public_slug, visibility, published_at, production, typography, lexobooks_edition, created_at, updated_at)
+    values (${issue.id}::uuid, ${ownerUserId ?? null}, ${issue.title}, ${issue.number}, ${issue.editionDate}, ${issue.status}::issue_status, ${issue.description}, ${issue.theme}, ${issue.coverImageUrl ?? null}, ${issue.coverImagePublicId ?? null}, ${JSON.stringify(issue.coverLines)}::jsonb, ${JSON.stringify(issue.cover ?? {})}::jsonb, ${JSON.stringify(issue.palette ?? {})}::jsonb, ${issue.publicSlug ?? null}, ${issue.visibility ?? "private"}, ${issue.publishedAt ?? null}::timestamptz, ${JSON.stringify(issue.production ?? {})}::jsonb, ${JSON.stringify(issue.typography ?? {})}::jsonb, ${JSON.stringify(issue.fixedLayout ?? {})}::jsonb, ${issue.createdAt}::timestamptz, ${issue.updatedAt}::timestamptz)
+    on conflict (id) do update set owner_user_id=coalesce(issues.owner_user_id, excluded.owner_user_id), title=excluded.title, issue_number=excluded.issue_number, edition_date=excluded.edition_date, status=excluded.status, description=excluded.description, theme=excluded.theme, cover_image_url=excluded.cover_image_url, cover_image_public_id=excluded.cover_image_public_id, cover_lines=excluded.cover_lines, cover=excluded.cover, palette=excluded.palette, public_slug=excluded.public_slug, visibility=excluded.visibility, published_at=excluded.published_at, production=excluded.production, typography=excluded.typography, lexobooks_edition=excluded.lexobooks_edition, updated_at=excluded.updated_at
   `);
 
   queries.push(sql`delete from issue_pages where issue_id=${issue.id}::uuid`);
@@ -173,6 +177,11 @@ export async function saveIssue(input: Issue, ownerUserId?: string): Promise<Iss
   return issue;
 }
 
-export async function removeIssue(id: string) {
-  await db()`delete from issues where id=${id}::uuid`;
+export async function removeIssue(id: string, ownerUserId?: string) {
+  const sql = db();
+  if (ownerUserId) {
+    await sql`delete from issues where id=${id}::uuid and owner_user_id=${ownerUserId}`;
+    return;
+  }
+  await sql`delete from issues where id=${id}::uuid`;
 }
