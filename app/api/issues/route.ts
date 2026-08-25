@@ -17,7 +17,12 @@ function staleClient(request: Request) {
   return request.headers.get("x-lexozine-write-generation") !== WRITE_GENERATION;
 }
 
-async function issueExists(id: string, ownerUserId: string) {
+async function issueExists(id: string) {
+  const rows = await db()`select id from issues where id=${id}::uuid limit 1`;
+  return (rows as any[]).length > 0;
+}
+
+async function issueOwnedBy(id: string, ownerUserId: string) {
   const rows = await db()`select id from issues where id=${id}::uuid and owner_user_id=${ownerUserId} limit 1`;
   return (rows as any[]).length > 0;
 }
@@ -35,7 +40,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "This Lexozine tab is out of date. Refresh Studio before saving." }, { status: 409 });
   }
   const issue = await request.json() as Issue;
-  if (!(await issueExists(issue.id, user.id))) {
+  if (!(await issueOwnedBy(issue.id, user.id))) {
     return NextResponse.json({ error: "This issue was deleted from Studio and cannot be restored by a stale browser copy." }, { status: 410 });
   }
   const saved = await saveIssue(issue, user.id);
@@ -49,7 +54,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This Lexozine tab is out of date. Refresh Studio before creating an issue." }, { status: 409 });
   }
   const issue = await request.json() as Issue;
-  if (await issueExists(issue.id, user.id)) {
+  if (await issueExists(issue.id)) {
     return NextResponse.json({ error: "An issue with this id already exists." }, { status: 409 });
   }
   const saved = await saveIssue(issue, user.id);
