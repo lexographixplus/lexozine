@@ -36,11 +36,15 @@ release artifact, not an editable project file.
 ## Delivery rules
 
 - Page SVGs are rendered by LexoBooks from the same display list as the PDF.
-- Every asset URL is immutable and HTTPS in production.
-- LexoZine stores this manifest against an issue as the selected fixed-layout
-  build. It does not rewrite page geometry.
-- The public reader shows the fixed pages as the **Magazine** view and keeps
-  LexoZine's reflowed articles as the **Read** view.
-- A later direct-publish workflow will upload files using signed object-storage
-  URLs before it calls the import endpoint. The import endpoint intentionally
-  accepts URLs rather than putting artwork blobs in PostgreSQL.
+- The current handoff is a portable ZIP package: manifest.json, pages/, and
+  assets/. LexoZine validates it, uploads approved image/SVG assets to
+  Cloudinary, rewrites page references, and stores only the immutable manifest
+  in PostgreSQL.
+- The JSON endpoint remains available for a later direct-publish workflow that
+  has already uploaded versioned files to object storage.
+- LexoZine stores the selected fixed-layout build against an issue; it does not
+  rewrite page geometry.
+- The public reader shows fixed pages in Magazine view and keeps LexoZine's
+  accessible reflowed articles in Read view.
+- Desktop fonts are not copied automatically. A licensed web-font policy must
+  be chosen before a release that depends on non-system fonts.
