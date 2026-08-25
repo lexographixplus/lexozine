@@ -42,7 +42,7 @@ export default function StudioNavigation({ issueId }: { issueId?: string }) {
       {items.map(({ href, label, icon: Icon, scoped }) => {
         const target = scoped && currentIssueId ? `${href}?issue=${currentIssueId}` : href;
         const active = href === "/issues"
-          ? pathname === "/issues"
+          ? pathname === "/issues" || pathname === "/"
           : pathname === href || pathname.startsWith(`${href}/`);
 
         return (
