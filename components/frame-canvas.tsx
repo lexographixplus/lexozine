@@ -17,11 +17,11 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { DragEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import RichTextEditor from "@/components/rich-text-editor";
 import StudioEditorShell from "@/components/studio-editor-shell";
-import type { FrameGeometry, Issue, StoryBlock } from "@/lib/editor-model";
-import { createId, defaultFrameFor, themeTokens } from "@/lib/editor-model";
+import type { FrameGeometry, Issue, MediaAsset, StoryBlock } from "@/lib/editor-model";
+import { createId, defaultFrameFor, defaultImagePlacement, themeTokens } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { issueStore } from "@/lib/issue-store";
 
@@ -62,6 +62,9 @@ export default function FrameCanvas() {
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [saveState, setSaveState] = useState("Loading issue…");
+  const [mediaAssets, setMediaAssets] = useState<Array<MediaAsset & { focalX: number; focalY: number }>>([]);
+  const [mediaState, setMediaState] = useState("Loading media…");
+  const [dropActive, setDropActive] = useState(false);
 
   const article = useMemo(
     () => issue.articles.find((item) => item.id === articleId) ?? issue.articles[0],
@@ -109,6 +112,24 @@ export default function FrameCanvas() {
     void load();
     return () => { alive = false; };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadMedia() {
+      try {
+        const response = await fetch(`/api/media?issue=${encodeURIComponent(issue.id)}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Media request failed (${response.status})`);
+        const data = await response.json() as { assets: Array<MediaAsset & { focalX: number; focalY: number }> };
+        if (!alive) return;
+        setMediaAssets(data.assets);
+        setMediaState(data.assets.length ? `${data.assets.length} asset${data.assets.length === 1 ? "" : "s"}` : "No assets yet");
+      } catch {
+        if (alive) setMediaState("Media unavailable");
+      }
+    }
+    void loadMedia();
+    return () => { alive = false; };
+  }, [issue.id]);
 
   useEffect(() => {
     function onMove(event: globalThis.PointerEvent) {
@@ -270,6 +291,66 @@ export default function FrameCanvas() {
     setSelectedId(block.id);
   }
 
+  function addMediaAsset(
+    asset: MediaAsset & { focalX: number; focalY: number },
+    position?: { x: number; y: number },
+  ) {
+    if (!article) return;
+    const aspect = asset.width && asset.height ? asset.width / asset.height : 4 / 3;
+    const width = 48;
+    const height = clamp((width * ratio) / aspect, 16, 64);
+    const nextLayer = Math.max(0, ...blocks.map((block) => frameFor(block).zIndex)) + 1;
+    const block: StoryBlock = {
+      id: createId("block"),
+      type: "image",
+      content: "",
+      order: article.blocks.length,
+      imageUrl: asset.url,
+      imagePublicId: asset.publicId,
+      placement: {
+        ...defaultImagePlacement,
+        alt: asset.alt,
+        focalX: asset.focalX,
+        focalY: asset.focalY,
+      },
+      frame: {
+        x: clamp((position?.x ?? 50) - width / 2, 0, 100 - width),
+        y: clamp((position?.y ?? 50) - height / 2, 0, 100 - height),
+        width,
+        height,
+        rotation: 0,
+        zIndex: nextLayer,
+        locked: false,
+      },
+    };
+    mutateArticle((current) => [...current, block]);
+    setSelectedId(block.id);
+    setSaveState(`${asset.name} placed on canvas`);
+  }
+
+  function startAssetDrag(event: DragEvent<HTMLButtonElement>, asset: MediaAsset & { focalX: number; focalY: number }) {
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("application/x-lexozine-media", JSON.stringify(asset));
+    event.dataTransfer.setData("text/plain", asset.name);
+  }
+
+  function handleCanvasDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDropActive(false);
+    const payload = event.dataTransfer.getData("application/x-lexozine-media");
+    if (!payload || !pageRef.current) return;
+    try {
+      const asset = JSON.parse(payload) as MediaAsset & { focalX: number; focalY: number };
+      const rect = pageRef.current.getBoundingClientRect();
+      addMediaAsset(asset, {
+        x: ((event.clientX - rect.left) / rect.width) * 100,
+        y: ((event.clientY - rect.top) / rect.height) * 100,
+      });
+    } catch {
+      setSaveState("Unable to place the dragged asset");
+    }
+  }
+
   function duplicateSelected() {
     if (!selected || !article) return;
     const frame = frameFor(selected);
@@ -396,6 +477,29 @@ export default function FrameCanvas() {
         <Link href={`/media?issue=${issue.id}`}><ImageIcon size={14} /> Media</Link>
       </div>
 
+      <div className="frame-media-head">
+        <span className="frame-section-label">Media</span>
+        <Link href={`/media?issue=${issue.id}&article=${article.id}&returnTo=canvas`}>Open library</Link>
+      </div>
+      <div className="frame-media-tray">
+        {mediaAssets.slice(0, 8).map((asset) => (
+          <button
+            type="button"
+            draggable
+            key={asset.id}
+            title={`Drag ${asset.name} onto the page`}
+            onDragStart={(event) => startAssetDrag(event, asset)}
+            onDoubleClick={() => addMediaAsset(asset)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={asset.url} alt={asset.alt} />
+            <span>{asset.name}</span>
+          </button>
+        ))}
+        {!mediaAssets.length ? <Link className="frame-media-empty" href={`/media?issue=${issue.id}&article=${article.id}&returnTo=canvas`}>Add media</Link> : null}
+      </div>
+      <small className="frame-media-help">{mediaAssets.length ? "Drag an image onto the page or double-click to centre it." : mediaState}</small>
+
       <div className="frame-section-label">Stacking order</div>
       <div className="layer-list">
         {[...blocks].reverse().map((block) => (
@@ -521,7 +625,7 @@ export default function FrameCanvas() {
       <div className="frame-scroll">
         <div
           ref={pageRef}
-          className={`frame-page ${showGrid ? "grid" : ""}`}
+          className={`frame-page ${showGrid ? "grid" : ""} ${dropActive ? "drop-active" : ""}`}
           style={{
             aspectRatio: landscape ? `${1 / ratio}` : `${ratio}`,
             background: theme.paper,
@@ -530,6 +634,17 @@ export default function FrameCanvas() {
             transformOrigin: "top center",
           }}
           onClick={() => setSelectedId("")}
+          onDragOver={(event) => {
+            if (event.dataTransfer.types.includes("application/x-lexozine-media")) {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+              setDropActive(true);
+            }
+          }}
+          onDragLeave={(event) => {
+            if (event.currentTarget === event.target) setDropActive(false);
+          }}
+          onDrop={handleCanvasDrop}
         >
           {blocks.map(renderFrame)}
           <div className="frame-safe-area" />
