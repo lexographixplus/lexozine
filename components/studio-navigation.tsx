@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   BookOpen,
   Boxes,
@@ -29,12 +30,32 @@ const items = [
 ];
 
 export default function StudioNavigation({ issueId }: { issueId?: string }) {
-  const currentIssueId = issueId ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("issue") ?? undefined : undefined);
+  const pathname = usePathname();
+  const currentIssueId = issueId ?? (
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("issue") ?? undefined
+      : undefined
+  );
+
   return (
     <aside className="rail" aria-label="Studio navigation">
-      {items.map(({ href, label, icon: Icon, scoped }, index) => {
+      {items.map(({ href, label, icon: Icon, scoped }) => {
         const target = scoped && currentIssueId ? `${href}?issue=${currentIssueId}` : href;
-        return <Link key={href} href={target} className={`rail-item ${index === 0 ? "active" : ""}`}><Icon size={19} /><span>{label}</span></Link>;
+        const active = href === "/issues"
+          ? pathname === "/issues" || pathname === "/"
+          : pathname === href || pathname.startsWith(`${href}/`);
+
+        return (
+          <Link
+            key={href}
+            href={target}
+            className={`rail-item ${active ? "active" : ""}`}
+            aria-current={active ? "page" : undefined}
+          >
+            <Icon size={19} />
+            <span>{label}</span>
+          </Link>
+        );
       })}
     </aside>
   );
