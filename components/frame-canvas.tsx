@@ -500,7 +500,7 @@ export default function FrameCanvas() {
       issueTitle={issue.title}
       documentLabel={article.title}
       saveState={saveState}
-      onSave={() => void saveNow()}
+      saveAction={{ label: "Save", onClick: () => void saveNow() }}
       navigator={navigator}
       toolbar={toolbar}
       inspector={inspector}
