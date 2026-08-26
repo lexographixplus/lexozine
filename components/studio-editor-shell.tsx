@@ -11,14 +11,18 @@ type StudioEditorShellProps = {
   issueTitle: string;
   documentLabel: string;
   saveState: string;
-  onSave: () => void;
+  saveAction?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+  };
   navigator: ReactNode;
   inspector: ReactNode;
   toolbar: ReactNode;
   children: ReactNode;
   status: ReactNode;
-  previewHref: string;
-  exportHref: string;
+  previewHref?: string;
+  exportHref?: string;
 };
 
 /**
@@ -34,7 +38,7 @@ export default function StudioEditorShell({
   issueTitle,
   documentLabel,
   saveState,
-  onSave,
+  saveAction,
   navigator,
   inspector,
   toolbar,
@@ -65,15 +69,18 @@ export default function StudioEditorShell({
 
         <div className={styles.actions}>
           <span className={styles.saveState}><i aria-hidden="true" />{saveState}</span>
-          <Link href={previewHref} className={styles.secondaryAction}>
-            <Eye size={15} /> Preview
-          </Link>
-          <Link href={exportHref} className={styles.secondaryAction}>
-            <Download size={15} /> Export
-          </Link>
-          <button type="button" className={styles.primaryAction} onClick={onSave}>
-            <Save size={15} /> Save
-          </button>
+          {previewHref ? <Link href={previewHref} className={styles.secondaryAction}><Eye size={15} /> Preview</Link> : null}
+          {exportHref ? <Link href={exportHref} className={styles.secondaryAction}><Download size={15} /> Export</Link> : null}
+          {saveAction ? (
+            <button
+              type="button"
+              className={styles.primaryAction}
+              onClick={saveAction.onClick}
+              disabled={saveAction.disabled}
+            >
+              <Save size={15} /> {saveAction.label}
+            </button>
+          ) : null}
         </div>
       </header>
 
