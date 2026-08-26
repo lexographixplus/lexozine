@@ -94,8 +94,10 @@ export default function FrameCanvas() {
   useEffect(() => {
     let alive = true;
     async function load() {
-      const requestedId = new URLSearchParams(location.search).get("issue");
-      const requestedArticle = new URLSearchParams(location.search).get("article");
+      const params = new URLSearchParams(location.search);
+      const requestedId = params.get("issue");
+      const requestedArticle = params.get("article");
+      const requestedSelected = params.get("selected");
       const issues = await issueStore?.list() ?? [];
       const found = requestedId ? issues.find((item) => item.id === requestedId) : issues[0];
       if (!found || !alive) return;
@@ -106,7 +108,11 @@ export default function FrameCanvas() {
         : found.articles[0]?.id ?? "";
       setArticleId(first);
       const target = found.articles.find((item) => item.id === first);
-      setSelectedId(target?.blocks[0]?.id ?? "");
+      setSelectedId(
+        requestedSelected && target?.blocks.some((block) => block.id === requestedSelected)
+          ? requestedSelected
+          : target?.blocks[0]?.id ?? "",
+      );
       setSaveState("Saved");
     }
     void load();
