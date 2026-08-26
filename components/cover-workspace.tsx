@@ -310,8 +310,8 @@ export default function CoverWorkspace() {
             <button className="cover-palette-action" onClick={() => void createPaletteFromCover()}><Palette size={15}/> Build palette from cover</button>
             <small>Palette source: {palette.source}</small>
           </div></div>}
-        toolbar={<div className="cover-stage-toolbar">
-          <div className="cover-stage-toolbar"><div><strong>{previewKind === "wrap" ? "Full-wrap preview" : "Front-cover preview"}</strong><span>{production.pageSize} · {production.orientation} · bleed {production.bleed} mm · safe {production.safeMargin} mm</span></div><div className="cover-guide-key"><span><i className="trim-key"/>Trim</span><span><i className="safe-key"/>Safe area</span></div></div></div>}
+        toolbar={<>
+          <div className="cover-stage-toolbar"><div><strong>{previewKind === "wrap" ? "Full-wrap preview" : "Front-cover preview"}</strong><span>{production.pageSize} · {production.orientation} · bleed {production.bleed} mm · safe {production.safeMargin} mm</span></div><div className="cover-guide-key"><span><i className="trim-key"/>Trim</span><span><i className="safe-key"/>Safe area</span></div></div></>}
         inspector={<div className="cover-inspector">
           {imported ? <>
             <div className="cover-inspector-head"><span>Imported cover</span><strong>{activeAsset?.name ?? "No active asset"}</strong></div>
