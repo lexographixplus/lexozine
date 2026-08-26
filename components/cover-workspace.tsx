@@ -20,6 +20,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { CoverAsset, CoverAssetKind, CoverDesign, CoverTextAlign, Issue, IssuePalette } from "@/lib/editor-model";
 import { createIssueTemplate } from "@/lib/issue-templates";
 import { issueStore } from "@/lib/issue-store";
+import StudioEditorShell from "@/components/studio-editor-shell";
 import {
   coverTemplates,
   pageDimensionsMm,
@@ -269,18 +270,17 @@ export default function CoverWorkspace() {
       : { background: `linear-gradient(180deg, transparent 10%, ${cover.overlay.color} 100%)`, opacity: cover.overlay.opacity };
 
   return (
-    <main className="cover-studio-shell">
+    <>
       <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" onChange={handleUpload} />
-      <header className="cover-studio-header">
-        <div className="cover-header-copy">
-          <Link href={`/?issue=${issue.id}`} className="cover-back"><ArrowLeft size={16}/> Studio</Link>
-          <div><span className="cover-eyebrow">Lexozine cover system · Release 0.4</span><h1>Cover Studio</h1><p>{issue.title} · Issue {issue.number}</p></div>
-        </div>
-        <div className="cover-header-actions"><span className={dirty ? "cover-status dirty" : "cover-status"}>{status}</span><button className="cover-save" onClick={() => void saveIssue()} disabled={!dirty}><Save size={16}/> Save cover</button></div>
-      </header>
-
-      <section className="cover-studio-workspace">
-        <aside className="cover-source-panel">
+      <StudioEditorShell
+        issueId={issue.id}
+        issueTitle={issue.title}
+        documentLabel="Cover"
+        saveState={dirty ? "Unsaved cover changes" : status}
+        saveAction={{ label: "Save cover", onClick: () => void saveIssue(), disabled: !dirty }}
+        previewHref={`/preview?issue=${encodeURIComponent(issue.id)}`}
+        exportHref={`/export?issue=${encodeURIComponent(issue.id)}`}
+        navigator={<div className="cover-source-panel">
           <div className="cover-mode-switch">
             <button className={imported ? "active" : ""} onClick={() => patchCover({ mode: "imported" })}><UploadCloud size={16}/> Import</button>
             <button className={!imported ? "active" : ""} onClick={() => patchCover({ mode: "generated" })}><Sparkles size={16}/> Design</button>
@@ -309,24 +309,10 @@ export default function CoverWorkspace() {
             <div className="cover-swatches"><span style={{ background: palette.primary }}/><span style={{ background: palette.secondary }}/><span style={{ background: palette.background }}/><span style={{ background: palette.ink }}/><span style={{ background: palette.muted }}/></div>
             <button className="cover-palette-action" onClick={() => void createPaletteFromCover()}><Palette size={15}/> Build palette from cover</button>
             <small>Palette source: {palette.source}</small>
-          </div>
-        </aside>
-
-        <section className="cover-stage">
-          <div className="cover-stage-toolbar"><div><strong>{previewKind === "wrap" ? "Full-wrap preview" : "Front-cover preview"}</strong><span>{production.pageSize} · {production.orientation} · bleed {production.bleed} mm · safe {production.safeMargin} mm</span></div><div className="cover-guide-key"><span><i className="trim-key"/>Trim</span><span><i className="safe-key"/>Safe area</span></div></div>
-          <div className="cover-preview-scroll">
-            <article className={`cover-preview ${templateClass} ${previewKind === "wrap" ? "is-wrap" : ""}`} style={{ aspectRatio }}>
-              {imageUrl ? <div className="cover-preview-image">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={imageUrl} alt="Active cover" style={{ objectFit: cover.heroFit, objectPosition: `${cover.heroFocalX}% ${cover.heroFocalY}%` }}/></div> : <div className="cover-preview-fallback" style={{ background: `linear-gradient(135deg, ${palette.secondary}, ${palette.primary} 55%, ${palette.background})` }}/>} 
-              {!imported ? <><div className="cover-preview-overlay" style={overlayStyle}/><div className={`cover-generated-copy align-${cover.textAlign}`}><div className="generated-meta"><span>ISSUE {issue.number}</span><span>{issue.editionDate}</span></div><div className="generated-masthead">{cover.masthead}</div><div className="generated-feature"><span>{issue.title}</span><h2>{cover.mainHeadline}</h2><p>{cover.deck}</p></div><div className="generated-lines">{cover.lines.map((line) => <span key={line}>{line}</span>)}</div></div></> : null}
-              <div className="cover-trim-guide" style={{ inset: `${bleedY}% ${bleedX}%` }}/>
-              <div className="cover-safe-guide" style={{ inset: `${bleedY + safeY}% ${bleedX + safeX}%` }}/>
-              {previewKind === "wrap" ? <><div className="cover-wrap-center"/><div className="cover-wrap-label back">BACK</div><div className="cover-wrap-label front">FRONT</div></> : null}
-            </article>
-          </div>
-          {previewKind === "wrap" ? <p className="cover-wrap-note">Wrap preview shows back/front panel balance. Exact spine width should be resolved at final print export once page count and stock are confirmed.</p> : null}
-        </section>
-
-        <aside className="cover-inspector">
+          </div></div>}
+        toolbar={<div className="cover-stage-toolbar">
+          <div className="cover-stage-toolbar"><div><strong>{previewKind === "wrap" ? "Full-wrap preview" : "Front-cover preview"}</strong><span>{production.pageSize} · {production.orientation} · bleed {production.bleed} mm · safe {production.safeMargin} mm</span></div><div className="cover-guide-key"><span><i className="trim-key"/>Trim</span><span><i className="safe-key"/>Safe area</span></div></div></div>}
+        inspector={<div className="cover-inspector">
           {imported ? <>
             <div className="cover-inspector-head"><span>Imported cover</span><strong>{activeAsset?.name ?? "No active asset"}</strong></div>
             <label>Image fit<select value={cover.heroFit} onChange={(event) => patchCover({ heroFit: event.target.value as CoverDesign["heroFit"] })}><option value="contain">Fit whole design</option><option value="cover">Fill and crop</option></select></label>
@@ -344,9 +330,21 @@ export default function CoverWorkspace() {
             <label>Overlay<select value={cover.overlay.type} onChange={(event) => patchCover({ overlay: { ...cover.overlay, type: event.target.value as CoverDesign["overlay"]["type"] } })}><option value="gradient">Gradient</option><option value="solid">Solid</option><option value="none">None</option></select></label>
             {cover.overlay.type !== "none" ? <><label>Overlay colour<input type="color" value={cover.overlay.color} onChange={(event) => patchCover({ overlay: { ...cover.overlay, color: event.target.value } })}/></label><label>Overlay strength <span>{Math.round(cover.overlay.opacity * 100)}%</span><input type="range" min="0" max="100" value={Math.round(cover.overlay.opacity * 100)} onChange={(event) => patchCover({ overlay: { ...cover.overlay, opacity: Number(event.target.value) / 100 } })}/></label></> : null}
             {imageUrl ? <><label>Hero image fit<select value={cover.heroFit} onChange={(event) => patchCover({ heroFit: event.target.value as CoverDesign["heroFit"] })}><option value="cover">Fill frame</option><option value="contain">Fit image</option></select></label><label>Hero horizontal focus <span>{cover.heroFocalX}%</span><input type="range" min="0" max="100" value={cover.heroFocalX} onChange={(event) => patchCover({ heroFocalX: Number(event.target.value) })}/></label><label>Hero vertical focus <span>{cover.heroFocalY}%</span><input type="range" min="0" max="100" value={cover.heroFocalY} onChange={(event) => patchCover({ heroFocalY: Number(event.target.value) })}/></label></> : <div className="cover-inspector-note"><strong>No hero image selected.</strong><span>Import an image cover version first, then switch to Design mode to use it as the cover background.</span></div>}
-          </>}
-        </aside>
-      </section>
-    </main>
+          </>}</div>}
+        status={<><span>{previewKind === "wrap" ? "Full-wrap canvas" : "Front-cover canvas"}</span><span>•</span><span>{production.pageSize} · {production.orientation}</span><span>•</span><span>Bleed {production.bleed} mm · Safe {production.safeMargin} mm</span></>}
+      >
+        <div className="cover-studio-canvas">
+          <div className="cover-preview-scroll">
+            <article className={`cover-preview ${templateClass} ${previewKind === "wrap" ? "is-wrap" : ""}`} style={{ aspectRatio }}>
+              {imageUrl ? <div className="cover-preview-image">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={imageUrl} alt="Active cover" style={{ objectFit: cover.heroFit, objectPosition: `${cover.heroFocalX}% ${cover.heroFocalY}%` }}/></div> : <div className="cover-preview-fallback" style={{ background: `linear-gradient(135deg, ${palette.secondary}, ${palette.primary} 55%, ${palette.background})` }}/>} 
+              {!imported ? <><div className="cover-preview-overlay" style={overlayStyle}/><div className={`cover-generated-copy align-${cover.textAlign}`}><div className="generated-meta"><span>ISSUE {issue.number}</span><span>{issue.editionDate}</span></div><div className="generated-masthead">{cover.masthead}</div><div className="generated-feature"><span>{issue.title}</span><h2>{cover.mainHeadline}</h2><p>{cover.deck}</p></div><div className="generated-lines">{cover.lines.map((line) => <span key={line}>{line}</span>)}</div></div></> : null}
+              <div className="cover-trim-guide" style={{ inset: `${bleedY}% ${bleedX}%` }}/>
+              <div className="cover-safe-guide" style={{ inset: `${bleedY + safeY}% ${bleedX + safeX}%` }}/>
+              {previewKind === "wrap" ? <><div className="cover-wrap-center"/><div className="cover-wrap-label back">BACK</div><div className="cover-wrap-label front">FRONT</div></> : null}
+            </article>
+          </div>
+          {previewKind === "wrap" ? <p className="cover-wrap-note">Wrap preview shows back/front panel balance. Exact spine width should be resolved at final print export once page count and stock are confirmed.</p> : null}</div>
+      </StudioEditorShell>
+    </>
   );
 }
